@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>422207793483-s60ds0j09t2kkaejv91aspenqfo0rr2p.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.422207793483-s60ds0j09t2kkaejv91aspenqfo0rr2p</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>422207793483-6f07ts3llgb918qch4ncl60inmqpjvht.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBx1x1B8J2AYtmnKj2aurVzuAav3thWNOQ</string>
+	<key>GCM_SENDER_ID</key>
+	<string>422207793483</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.tarrifo</string>
+	<key>PROJECT_ID</key>
+	<string>acumacum-6ea24</string>
+	<key>STORAGE_BUCKET</key>
+	<string>acumacum-6ea24.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:422207793483:ios:35883169503fb7474220ce</string>
+	<key>DATABASE_URL</key>
+	<string>https://acumacum-6ea24.firebaseio.com</string>
+</dict>
+</plist>
