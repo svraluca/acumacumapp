@@ -150,12 +150,10 @@
         "node_modules",
         ".git",
         "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
+        "firebase-debug.*.log"
       ],
       "predeploy": [
-        "npm --prefix \"$RESOURCE_DIR\" run lint",
-        "npm --prefix \"$RESOURCE_DIR\" run build"
+        "npm --prefix \"$RESOURCE_DIR\" run lint"
       ]
     }
   ]
