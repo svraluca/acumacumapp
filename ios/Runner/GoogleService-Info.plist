@@ -26,5 +26,7 @@
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
 	<string>1:908283337538:ios:dfea87a1656664115786db</string>
+	<key>DATABASE_URL</key>
+	<string>https://animo-f15e0-default-rtdb.europe-west1.firebasedatabase.app</string>
 </dict>
 </plist>

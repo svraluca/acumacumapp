@@ -1,3 +1,7 @@
+import 'dart:developer';
+import 'dart:io';
+
+import 'package:acumacum/notifications_setup/push_notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +11,7 @@ import 'package:rflutter_alert/rflutter_alert.dart';
 import 'package:acumacum/ui/HomePage.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:rxdart/rxdart.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+
 import 'dart:async' show unawaited;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -55,14 +59,12 @@ class _ChatScreenState extends State<ChatScreen> {
   String? onlineStatus;
   Message? eachMessage;
 
-  String userAvatar =
-      'https://toppng.com/uploads/preview/roger-berry-avatar-placeholder-11562991561rbrfzlng6h.png';
+  String userAvatar = 'https://toppng.com/uploads/preview/roger-berry-avatar-placeholder-11562991561rbrfzlng6h.png';
 
   String serviceName = 'Service Not Found';
   String description = 'Not description yet';
 
-  CollectionReference messageColl =
-      FirebaseFirestore.instance.collection('ChatRoom');
+  CollectionReference messageColl = FirebaseFirestore.instance.collection('ChatRoom');
 
   TextEditingController messageController = TextEditingController();
   TextEditingController offerController = TextEditingController();
@@ -78,17 +80,13 @@ class _ChatScreenState extends State<ChatScreen> {
   TextEditingController dateController = TextEditingController();
   TextEditingController timeController = TextEditingController();
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = 
-      FlutterLocalNotificationsPlugin();
-
   // Add these getters
   bool get isServiceProvider => currentUserId == widget.serviceProviderId;
-  
+
   bool get isClient => currentUserId != widget.serviceProviderId;
-  
+
   bool get isPending => true; // You might want to modify this based on your logic
-  
+
   bool get isRescheduled => false; // You might want to modify this based on your logic
 
   // Add ScrollController
@@ -98,38 +96,31 @@ class _ChatScreenState extends State<ChatScreen> {
   int _previousMessageCount = 0;
 
   // Add this variable at the top of your class
-  bool _isStatusUpdating = false;
+  final bool _isStatusUpdating = false;
 
   @override
   void initState() {
     super.initState();
-    print('ChatScreen initialized with:');
-    print('Current User ID: ${FirebaseAuth.instance.currentUser?.uid}');
-    print('Service Provider ID: ${widget.serviceProviderId}');
-    
+    log('ChatScreen initialized with:');
+    log('Current User ID: ${FirebaseAuth.instance.currentUser?.uid}');
+    log('Service Provider ID: ${widget.serviceProviderId}');
+
     currentUserId = FirebaseAuth.instance.currentUser?.uid;
     currentName = FirebaseAuth.instance.currentUser!.displayName ?? 'User';
-    
+
     // Add keyboard visibility listener
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleKeyboardVisibility();
     });
-    
+
     _getUserAvatar();
     description = widget.description ?? 'No description yet';
     fetchUserServices();
     markMessagesAsRead();
-    initializeNotifications();
 
     // Add this to scroll to bottom after initial load
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
-    });
-
-    // Set up foreground message handler
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Received foreground message: ${message.notification?.title}');
-      showLocalNotification(message);
     });
 
     // Update FCM token when chat screen opens
@@ -137,116 +128,27 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> updateFCMToken() async {
-    String? token = await FirebaseMessaging.instance.getToken();
+    PushNotificationService pushNotificationService = PushNotificationService();
+    final token = await pushNotificationService.getAndroidToken();
     if (token != null && currentUserId != null) {
-      await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(currentUserId)
-          .update({
+      await FirebaseFirestore.instance.collection('Users').doc(currentUserId).update({
         'fcmToken': token,
       });
-      print('FCM Token updated: $token');
+      log('FCM Token updated: $token');
     }
-  }
-
-  Future<void> initializeNotifications() async {
-    // Request permission
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      // Initialize local notifications
-      const initializationSettingsAndroid = 
-          AndroidInitializationSettings('@mipmap/ic_launcher');
-      const initializationSettingsIOS = DarwinInitializationSettings();
-      const initializationSettings = InitializationSettings(
-        android: initializationSettingsAndroid,
-        iOS: initializationSettingsIOS,
-      );
-
-      await _flutterLocalNotificationsPlugin.initialize(
-        initializationSettings,
-        onDidReceiveNotificationResponse: (details) {
-          // Handle notification tap
-          print('Notification tapped: ${details.payload}');
-        },
-      );
-
-      // Get FCM token
-      String? token = await _firebaseMessaging.getToken();
-      if (token != null && currentUserId != null) {
-        await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(currentUserId)
-            .update({
-          'fcmToken': token,
-        });
-        print('FCM Token saved: $token');
-      }
-
-      // Handle foreground messages
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        print('Received foreground message: ${message.notification?.title}');
-        showLocalNotification(message);
-      });
-
-      // Handle background messages
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-      // Handle when app is opened from notification
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        print('App opened from notification: ${message.data}');
-        // Handle navigation if needed
-      });
-    }
-  }
-
-  // Add background message handler
-  static Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-    print('Handling background message: ${message.messageId}');
-  }
-
-  // Update the showLocalNotification method
-  Future<void> showLocalNotification(RemoteMessage message) async {
-    const androidDetails = AndroidNotificationDetails(
-      'chat_channel_id',
-      'Chat Notifications',
-      channelDescription: 'Notifications for chat messages',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-    const iosDetails = DarwinNotificationDetails();
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _flutterLocalNotificationsPlugin.show(
-      0,
-      message.notification?.title ?? 'New Message',
-      message.notification?.body,
-      details,
-      payload: json.encode(message.data),
-    );
   }
 
   // Update the sendMessage method to include FCM notification
   void sendMessage() {
     final messageText = messageController.text.trim();
     if (messageText.isEmpty) return;
-    
+
     messageController.clear();
-    
+
     Future(() async {
       try {
         final chatRoomId = getChatRoomId();
-        final messageDoc = messageColl
-            .doc(chatRoomId)
-            .collection("chats")
-            .doc();
+        final messageDoc = messageColl.doc(chatRoomId).collection("chats").doc();
 
         // Send the message
         await messageDoc.set({
@@ -258,18 +160,13 @@ class _ChatScreenState extends State<ChatScreen> {
         });
 
         // Get recipient's FCM token
-        final recipientDoc = await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(widget.serviceProviderId)
-            .get();
-            
+        final recipientDoc = await FirebaseFirestore.instance.collection('Users').doc(widget.serviceProviderId).get();
+
         final recipientToken = recipientDoc.data()?['fcmToken'];
-        
+
         if (recipientToken != null) {
           // Send FCM notification using Cloud Functions
-          await FirebaseFirestore.instance
-              .collection('notifications')
-              .add({
+          await FirebaseFirestore.instance.collection('notifications').add({
             'token': recipientToken,
             'title': currentName ?? 'New Message',
             'body': messageText,
@@ -292,7 +189,6 @@ class _ChatScreenState extends State<ChatScreen> {
         }, SetOptions(merge: true));
 
         _scrollToBottom();
-
       } catch (e) {
         print('Error sending message: $e');
       }
@@ -318,8 +214,7 @@ class _ChatScreenState extends State<ChatScreen> {
         serviceName = widget.serviceName!;
         description = widget.description ?? 'No description yet';
       });
-      print(
-          "Using passed service name and description: $serviceName, $description");
+      print("Using passed service name and description: $serviceName, $description");
       return;
     }
 
@@ -336,10 +231,8 @@ class _ChatScreenState extends State<ChatScreen> {
         if (docSnapshot.exists) {
           setState(() {
             serviceName = docSnapshot.data()?['name'] ?? 'Service Not Found';
-            description =
-                docSnapshot.data()?['description'] ?? 'No description yet';
-            print(
-                "Service name and description fetched from Firestore: $serviceName, $description");
+            description = docSnapshot.data()?['description'] ?? 'No description yet';
+            print("Service name and description fetched from Firestore: $serviceName, $description");
           });
         } else {
           setState(() {
@@ -361,10 +254,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _getUserAvatar() async {
-    final userDoc = await FirebaseFirestore.instance
-        .collection('Users')
-        .doc(currentUserId)
-        .get();
+    final userDoc = await FirebaseFirestore.instance.collection('Users').doc(currentUserId).get();
     if (userDoc.exists) {
       setState(() {
         userAvatar = userDoc.data()?['avatarUrl'] ?? userAvatar;
@@ -387,8 +277,7 @@ class _ChatScreenState extends State<ChatScreen> {
       );
 
       if (selectedTime != null) {
-        String formattedDateTime =
-            "${selectedDate.toLocal()} ${selectedTime.format(context)}";
+        String formattedDateTime = "${selectedDate.toLocal()} ${selectedTime.format(context)}";
         sendBookingDateTime(formattedDateTime);
       }
     }
@@ -396,11 +285,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void sendBookingDateTime(String dateTime) {
     final docId = DateTime.now().millisecondsSinceEpoch.toString();
-    messageColl
-        .doc('$currentName&${widget.userName}')
-        .collection("chats")
-        .doc(docId)
-        .set({
+    messageColl.doc('$currentName&${widget.userName}').collection("chats").doc(docId).set({
       'sender': currentUserId,
       'type': 'booking_date_time',
       'dateTime': dateTime,
@@ -414,11 +299,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    FirebaseFirestore.instance
-        .collection('Users')
-        .doc(currentUserId)
-        .get()
-        .then((value) {
+    FirebaseFirestore.instance.collection('Users').doc(currentUserId).get().then((value) {
       if (value.exists) {
         setState(() {
           currentName = (value.data() as Map<String, dynamic>)['name'];
@@ -451,14 +332,9 @@ class _ChatScreenState extends State<ChatScreen> {
             children: [
               TextSpan(
                   text: widget.userName,
-                  style: const TextStyle(
-                      fontSize: 12, 
-                      fontWeight: FontWeight.w400,
-                      color: Colors.black)),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: Colors.black)),
               const TextSpan(text: '\n'),
-              TextSpan(
-                  text: onlineStatus,
-                  style: const TextStyle(color: Colors.black))
+              TextSpan(text: onlineStatus, style: const TextStyle(color: Colors.black))
             ],
           ),
         ),
@@ -516,23 +392,16 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               child: Text(
                 "Give details to the business about the date and time\n you are interested to reserve their service.",
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                    wordSpacing: 0.3),
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1, wordSpacing: 0.3),
                 textAlign: TextAlign.center,
               ),
             ),
-            
+
             // Chat Messages StreamBuilder
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: messageColl
-                  .doc(getChatRoomId())
-                  .collection('chats')
-                  .orderBy('time', descending: false)
-                  .snapshots(),
+                stream:
+                    messageColl.doc(getChatRoomId()).collection('chats').orderBy('time', descending: false).snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     print('Error in StreamBuilder: ${snapshot.error}');
@@ -554,7 +423,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   }
 
                   print('Number of messages: ${snapshot.data!.docs.length}');
-                  
+
                   // Add this check for new messages
                   if (snapshot.hasData && snapshot.data!.docs.length > _previousMessageCount) {
                     _previousMessageCount = snapshot.data!.docs.length;
@@ -576,11 +445,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       var doc = snapshot.data!.docs[index];
                       var messageData = doc.data() as Map<String, dynamic>;
                       messageData['docId'] = doc.id;
-                      
+
                       print('Message ${index + 1}:');
                       print('Type: ${messageData['type']}');
                       print('Sender: ${messageData['sender']}');
-                      
+
                       return buildMessageItem(messageData);
                     },
                   );
@@ -666,8 +535,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(15),
                           ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         ),
                         child: const Text(
                           "YES",
@@ -698,8 +566,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(15),
                           ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         ),
                         child: const Text(
                           "NO",
@@ -727,8 +594,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       phoneNumber: '',
                       declined: false,
                       bookingDate: widget.initialBookingDateTime ?? '',
-                      photoUrl: widget.photoUrl ??
-                          'https://example.com/default-image.jpg',
+                      photoUrl: widget.photoUrl ?? 'https://example.com/default-image.jpg',
                       description: description,
                     ),
                   ),
@@ -742,22 +608,16 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void sendOffer(String dateTime) async {
-    List<String> userMap = [
-      '$currentName($currentUserId)',
-      '${widget.userName}(${widget.serviceProviderId})'
-    ];
+    List<String> userMap = ['$currentName($currentUserId)', '${widget.userName}(${widget.serviceProviderId})'];
 
     String serviceNameToSend = widget.serviceName ?? serviceName;
     String docId = DateTime.now().millisecondsSinceEpoch.toString();
 
-    await messageColl.doc('$currentName&${widget.userName}').set(
-        {"users": userMap, "chatRoomId": '$currentName&${widget.userName}'});
-
-    messageColl
+    await messageColl
         .doc('$currentName&${widget.userName}')
-        .collection("chats")
-        .doc(docId)
-        .set({
+        .set({"users": userMap, "chatRoomId": '$currentName&${widget.userName}'});
+
+    messageColl.doc('$currentName&${widget.userName}').collection("chats").doc(docId).set({
       'sender': "$currentName",
       'time': DateTime.now(),
       'type': 'offer',
@@ -776,7 +636,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void fetchUserServices() async {
     try {
       print('Fetching services for provider: ${widget.serviceProviderId}');
-      
+
       final servicesSnapshot = await FirebaseFirestore.instance
           .collection('Users')
           .doc(widget.serviceProviderId)
@@ -803,7 +663,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
       print('Total services fetched: ${_services.length}');
       print('Services list: $_services');
-
     } catch (e) {
       print('Error fetching services: $e');
     }
@@ -818,7 +677,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Initialize variables for dropdowns
     String? selectedHour;
     String? selectedMinute;
-    
+
     // Create lists for hours and minutes
     final List<String> hours = List.generate(24, (index) => index.toString().padLeft(2, '0'));
     final List<String> minutes = List.generate(60, (index) => index.toString().padLeft(2, '0'));
@@ -853,7 +712,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 20),
-                      
+
                       // Service Selection
                       if (_services.isNotEmpty) ...[
                         DropdownButtonFormField<String>(
@@ -899,7 +758,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      
+
                       // Date Selection
                       InkWell(
                         onTap: () async {
@@ -942,13 +801,9 @@ class _ChatScreenState extends State<ChatScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  dateController.text.isEmpty 
-                                    ? 'Select Date' 
-                                    : dateController.text,
+                                  dateController.text.isEmpty ? 'Select Date' : dateController.text,
                                   style: TextStyle(
-                                    color: dateController.text.isEmpty 
-                                      ? Colors.grey[600] 
-                                      : Colors.black,
+                                    color: dateController.text.isEmpty ? Colors.grey[600] : Colors.black,
                                   ),
                                 ),
                               ),
@@ -956,9 +811,9 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       // Time Selection using dropdowns
                       Row(
                         children: [
@@ -1027,7 +882,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
 
                       const SizedBox(height: 24),
-                      
+
                       // Action Buttons
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
@@ -1039,8 +894,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           const SizedBox(width: 16),
                           ElevatedButton(
                             onPressed: () {
-                              if (dateController.text.isNotEmpty && 
-                                  timeController.text.isNotEmpty && 
+                              if (dateController.text.isNotEmpty &&
+                                  timeController.text.isNotEmpty &&
                                   _selectedService != null) {
                                 String dateTimeString = '${dateController.text} ${timeController.text}';
                                 Navigator.of(context).pop();
@@ -1103,7 +958,7 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       String chatRoomId = getChatRoomId();
       print('Getting booking requests for chat room: $chatRoomId');
-      
+
       return messageColl
           .doc(chatRoomId)
           .collection('chats')
@@ -1120,10 +975,10 @@ class _ChatScreenState extends State<ChatScreen> {
   void sendBookingRequest(String dateTime, String serviceName) async {
     try {
       print('=== START: Sending Booking Request ===');
-      
+
       final docId = DateTime.now().millisecondsSinceEpoch.toString();
       String chatRoomId = getChatRoomId();
-      
+
       print('Chat Room ID: $chatRoomId');
       print('Current User ID: $currentUserId');
       print('Service Provider ID: ${widget.serviceProviderId}');
@@ -1179,17 +1034,12 @@ class _ChatScreenState extends State<ChatScreen> {
       print(bookingData);
 
       // Send booking request
-      await messageColl
-          .doc(chatRoomId)
-          .collection('chats')
-          .doc(docId)
-          .set(bookingData);
+      await messageColl.doc(chatRoomId).collection('chats').doc(docId).set(bookingData);
 
       print('Booking request sent successfully');
 
       // Scroll to bottom after sending booking request
       _scrollToBottom();
-
     } catch (error) {
       print('Error sending booking request: $error');
     }
@@ -1241,12 +1091,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void handleBookingResponse(String bookingId, bool accepted) async {
     try {
       String chatRoomId = getChatRoomId();
-      
-      await messageColl
-          .doc(chatRoomId)
-          .collection('chats')
-          .doc(bookingId)
-          .update({
+
+      await messageColl.doc(chatRoomId).collection('chats').doc(bookingId).update({
         'status': accepted ? 'accepted' : 'declined',
         'needsResponse': false,
         'isTimeUpdated': false,
@@ -1275,7 +1121,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Initialize variables for dropdowns
     String? selectedHour;
     String? selectedMinute;
-    
+
     // Create lists for hours and minutes
     final List<String> hours = List.generate(24, (index) => index.toString().padLeft(2, '0'));
     final List<String> minutes = List.generate(60, (index) => index.toString().padLeft(2, '0'));
@@ -1305,7 +1151,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // Date Selection
                   InkWell(
                     onTap: () async {
@@ -1348,13 +1194,9 @@ class _ChatScreenState extends State<ChatScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              dateController.text.isEmpty 
-                                ? 'Select Date' 
-                                : dateController.text,
+                              dateController.text.isEmpty ? 'Select Date' : dateController.text,
                               style: TextStyle(
-                                color: dateController.text.isEmpty 
-                                  ? Colors.grey[600] 
-                                  : Colors.black,
+                                color: dateController.text.isEmpty ? Colors.grey[600] : Colors.black,
                               ),
                             ),
                           ),
@@ -1362,9 +1204,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Time Selection using dropdowns
                   Row(
                     children: [
@@ -1433,7 +1275,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
 
                   const SizedBox(height: 24),
-                  
+
                   // Action Buttons
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -1450,11 +1292,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             Navigator.of(context).pop();
                             try {
                               String chatRoomId = getChatRoomId();
-                              messageColl
-                                  .doc(chatRoomId)
-                                  .collection('chats')
-                                  .doc(bookingId)
-                                  .update({
+                              messageColl.doc(chatRoomId).collection('chats').doc(bookingId).update({
                                 'bookingDateTime': dateTimeString,
                                 'status': 'pending',
                                 'isTimeUpdated': true,
@@ -1503,7 +1341,7 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-              backgroundColor: Colors.white,
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -1549,13 +1387,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   onPressed: () async {
                     try {
                       String chatRoomId = getChatRoomId();
-                      
-                      await messageColl
-                          .doc(chatRoomId)
-                          .collection('chats')
-                          .doc(bookingId)
-                          .delete();
-                          
+
+                      await messageColl.doc(chatRoomId).collection('chats').doc(bookingId).delete();
+
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -1605,19 +1439,13 @@ class _ChatScreenState extends State<ChatScreen> {
       // Get both possible combinations of the chat room ID
       String chatRoomId1 = '${widget.serviceProviderId}_$currentUserId';
       String chatRoomId2 = '${currentUserId}_${widget.serviceProviderId}';
-      
+
       print('Trying chat room IDs: $chatRoomId1 or $chatRoomId2');
 
       // Check which chat room exists
-      final chatRoom1 = await FirebaseFirestore.instance
-          .collection('ChatRoom')
-          .doc(chatRoomId1)
-          .get();
-      
-      final chatRoom2 = await FirebaseFirestore.instance
-          .collection('ChatRoom')
-          .doc(chatRoomId2)
-          .get();
+      final chatRoom1 = await FirebaseFirestore.instance.collection('ChatRoom').doc(chatRoomId1).get();
+
+      final chatRoom2 = await FirebaseFirestore.instance.collection('ChatRoom').doc(chatRoomId2).get();
 
       // Use the existing chat room ID
       final chatRoomId = chatRoom1.exists ? chatRoomId1 : chatRoomId2;
@@ -1632,7 +1460,7 @@ class _ChatScreenState extends State<ChatScreen> {
           .get();
 
       print('Found ${unreadMessages.docs.length} unread messages');
-      
+
       // Print each message for debugging
       for (var doc in unreadMessages.docs) {
         final data = doc.data();
@@ -1642,7 +1470,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       // Create a batch write
       final batch = FirebaseFirestore.instance.batch();
-      
+
       // Add each update to the batch
       for (var doc in unreadMessages.docs) {
         print('Marking message ${doc.id} as read');
@@ -1655,7 +1483,6 @@ class _ChatScreenState extends State<ChatScreen> {
       // Commit the batch
       await batch.commit();
       print('Successfully committed batch update');
-
     } catch (e) {
       print('Error marking messages as read: $e');
       print(e);
@@ -1710,22 +1537,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget buildMessageItem(Map<String, dynamic> messageData) {
     bool isMe = messageData['sender'] == currentUserId;
-    
+
     if (messageData['type'] == 'booking_request') {
       bool isTimeUpdated = messageData['isTimeUpdated'] == true;
       bool needsResponse = messageData['needsResponse'] == true;
       bool isOriginalSender = messageData['sender'] == currentUserId;
       String status = messageData['status'] ?? 'pending';
-      
+
       return Column(
         children: [
           BookingCard(bookingData: messageData),
-          
+
           // Show accept/decline buttons only when status is pending AND time is updated AND needs response
-          if (isTimeUpdated && 
-              needsResponse && 
-              isOriginalSender && 
-              status == 'pending')
+          if (isTimeUpdated && needsResponse && isOriginalSender && status == 'pending')
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
@@ -1766,11 +1590,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
             ),
-          
+
           // Show provider buttons only if not updated and is service provider
-          if (!isTimeUpdated && 
-              messageData['serviceProviderId'] == currentUserId && 
-              status == 'pending')
+          if (!isTimeUpdated && messageData['serviceProviderId'] == currentUserId && status == 'pending')
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
@@ -1837,7 +1659,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget buildTextMessage(Map<String, dynamic> messageData, bool isMe) {
     final timestamp = messageData['time'];
     String timeString = '';
-    
+
     if (timestamp != null) {
       if (timestamp is Timestamp) {
         timeString = timeago.format(timestamp.toDate());
@@ -1905,7 +1727,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp == null) return '';
-    
+
     DateTime dateTime;
     if (timestamp is Timestamp) {
       dateTime = timestamp.toDate();
@@ -1914,29 +1736,21 @@ class _ChatScreenState extends State<ChatScreen> {
     } else {
       return '';
     }
-    
+
     return timeago.format(dateTime, locale: 'en_short');
   }
 
   void handleRescheduleResponse(String bookingId, bool accepted) async {
     try {
       String chatRoomId = getChatRoomId();
-      
+
       // Get the booking request data first
-      final bookingDoc = await messageColl
-          .doc(chatRoomId)
-          .collection('chats')
-          .doc(bookingId)
-          .get();
-          
+      final bookingDoc = await messageColl.doc(chatRoomId).collection('chats').doc(bookingId).get();
+
       final bookingData = bookingDoc.data() as Map<String, dynamic>;
 
       // Update the chat message status
-      await messageColl
-          .doc(chatRoomId)
-          .collection('chats')
-          .doc(bookingId)
-          .update({
+      await messageColl.doc(chatRoomId).collection('chats').doc(bookingId).update({
         'status': accepted ? 'accepted' : 'declined',
         'needsResponse': false,
         'isTimeUpdated': false,
@@ -2019,45 +1833,34 @@ class _ChatScreenState extends State<ChatScreen> {
   // Add this method to check and send notifications for unread messages
   void checkAndSendNotification(Map<String, dynamic> messageData) async {
     print('Checking notification for message: $messageData');
-    
+
     // Only send notification if message is unread and current user is not the sender
-    if (messageData['unread'] == true && 
-        messageData['sender'] != currentUserId) {
-      
+    if (messageData['unread'] == true && messageData['sender'] != currentUserId) {
       print('Message qualifies for notification');
       print('Sender ID: ${messageData['sender']}');
       print('Current User ID: $currentUserId');
-      
+
       try {
         // Get sender's name
-        final senderDoc = await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(messageData['sender'])
-            .get();
-        
+        final senderDoc = await FirebaseFirestore.instance.collection('Users').doc(messageData['sender']).get();
+
         final senderName = senderDoc.data()?['name'] ?? 'Someone';
         print('Sender Name: $senderName');
 
         // Get recipient's FCM token
-        final recipientId = currentUserId == widget.serviceProviderId 
-            ? messageData['sender'] 
-            : widget.serviceProviderId;
-            
+        final recipientId =
+            currentUserId == widget.serviceProviderId ? messageData['sender'] : widget.serviceProviderId;
+
         print('Recipient ID: $recipientId');
-        
-        final recipientDoc = await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(recipientId)
-            .get();
-            
+
+        final recipientDoc = await FirebaseFirestore.instance.collection('Users').doc(recipientId).get();
+
         final recipientToken = recipientDoc.data()?['fcmToken'];
         print('Recipient Token: $recipientToken');
-        
+
         if (recipientToken != null) {
           // Send FCM notification using Cloud Functions
-          await FirebaseFirestore.instance
-              .collection('notifications')
-              .add({
+          await FirebaseFirestore.instance.collection('notifications').add({
             'token': recipientToken,
             'title': currentName ?? 'New Message',
             'body': messageData['message'] ?? 'New message',
@@ -2119,14 +1922,13 @@ class OfferCard extends StatefulWidget {
 }
 
 class _OfferCardState extends State<OfferCard> {
-  CollectionReference messageColl =
-      FirebaseFirestore.instance.collection('ChatRoom');
+  CollectionReference messageColl = FirebaseFirestore.instance.collection('ChatRoom');
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.only(top: 10, right: 10, left: 10, bottom: 5),
-              decoration: BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
@@ -2137,8 +1939,8 @@ class _OfferCardState extends State<OfferCard> {
           ),
         ],
       ),
-              child: Row(
-                children: [
+      child: Row(
+        children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.network(
@@ -2190,14 +1992,13 @@ class _OfferCardState extends State<OfferCard> {
                 const Spacer(),
                 Align(
                   alignment: Alignment.bottomRight,
-              child: Padding(
+                  child: Padding(
                     padding: const EdgeInsets.only(bottom: 1.0),
                     child: ElevatedButton(
                       onPressed: () {},
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                         minimumSize: const Size(10, 5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -2232,8 +2033,7 @@ class _OfferCardState extends State<OfferCard> {
 
   void acceptOffer(DateTime? date, String? time) async {
     // Assuming you have a Firestore collection for bookings
-    CollectionReference bookings =
-        FirebaseFirestore.instance.collection('bookings');
+    CollectionReference bookings = FirebaseFirestore.instance.collection('bookings');
 
     // Create a new booking entry
     await bookings.add({
@@ -2258,12 +2058,12 @@ class ServiceRequestCard extends StatelessWidget {
   final String photoUrl;
 
   const ServiceRequestCard({
-    Key? key,
+    super.key,
     required this.serviceName,
     required this.description,
     required this.price,
     required this.photoUrl,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2274,10 +2074,10 @@ class ServiceRequestCard extends StatelessWidget {
       ),
       child: Container(
         padding: const EdgeInsets.all(12),
-                child: Column(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+          mainAxisSize: MainAxisSize.min,
+          children: [
             Row(
               children: [
                 ClipRRect(
@@ -2351,10 +2151,11 @@ class ServiceRequestCard extends StatelessWidget {
     );
   }
 }
+
 class BookingCard extends StatelessWidget {
   final Map<String, dynamic> bookingData;
 
-  const BookingCard({Key? key, required this.bookingData}) : super(key: key);
+  const BookingCard({super.key, required this.bookingData});
 
   @override
   Widget build(BuildContext context) {
@@ -2366,8 +2167,8 @@ class BookingCard extends StatelessWidget {
     return FutureBuilder<DocumentSnapshot>(
       // Using Future instead of Stream since we don't need real-time updates
       future: FirebaseFirestore.instance
-            .collection('Users')
-            .doc(bookingData['serviceProviderId'])
+          .collection('Users')
+          .doc(bookingData['serviceProviderId'])
           .collection('Services')
           .doc(bookingData['serviceId'])
           .get(),
@@ -2387,7 +2188,7 @@ class BookingCard extends StatelessWidget {
         }
 
         final serviceData = snapshot.data!.data() as Map<String, dynamic>;
-        
+
         // Debug print the service data
         print('Fetched Service Data: $serviceData');
 
@@ -2438,9 +2239,9 @@ class BookingCard extends StatelessWidget {
                             child: const Icon(Icons.image_not_supported),
                           ),
                   ),
-                  
+
                   const SizedBox(width: 12),
-                  
+
                   // Service Details
                   Expanded(
                     child: Column(
@@ -2479,9 +2280,9 @@ class BookingCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 8),
-                        
+
                         // Description (optional)
                         if (serviceData['description'] != null)
                           Text(
@@ -2493,9 +2294,9 @@ class BookingCard extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                        
+
                         const SizedBox(height: 8),
-                        
+
                         // Booking DateTime
                         Row(
                           children: [
@@ -2514,9 +2315,9 @@ class BookingCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 8),
-                        
+
                         // Status Badge
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -2559,4 +2360,3 @@ class BookingCard extends StatelessWidget {
     }
   }
 }
-

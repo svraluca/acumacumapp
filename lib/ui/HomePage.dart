@@ -1,5 +1,5 @@
 import 'dart:math';
-
+import 'package:acumacum/notifications_setup/push_notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -28,41 +28,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:acumacum/ui/ClientUserPage.dart';
 
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  await setupFlutterNotifications();
-  showFlutterNotification(message);
-  print('Handling a background message ${message.messageId}');
-}
-
 late AndroidNotificationChannel channel;
 
 bool isFlutterLocalNotificationsInitialized = false;
 
 Future<void> setupFlutterNotifications() async {
-  if (isFlutterLocalNotificationsInitialized) {
-    return;
-  }
-  channel = const AndroidNotificationChannel(
-    'high_importance_channel',
-    'High Importance Notifications',
-    description: 'This channel is used for important notifications.',
-    importance: Importance.high,
-  );
-
-  flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(channel);
-
-  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
-  isFlutterLocalNotificationsInitialized = true;
+  PushNotificationService pushNotificationService = PushNotificationService();
+  pushNotificationService.startListeningToNotification();
 }
 
 void showFlutterNotification(RemoteMessage message) {
@@ -90,7 +62,6 @@ late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   if (!kIsWeb) {
     await setupFlutterNotifications();
@@ -122,7 +93,7 @@ class Post {
 
 class Homepage extends StatefulWidget {
   final int currentIndex;
-  const Homepage({Key? key, this.currentIndex = 0}) : super(key: key);
+  const Homepage({super.key, this.currentIndex = 0});
 
   @override
   HomepageState createState() => HomepageState();
@@ -151,9 +122,9 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
       checkIndex = 0;
       count = 0;
     });
-    
+
     await Future.delayed(const Duration(milliseconds: 800));
-    
+
     return Future<void>.value();
   }
 
@@ -163,7 +134,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
       checkIndex = 0;
       count = 0;
     });
-    
+
     await Future.delayed(const Duration(milliseconds: 800));
     return Future<void>.value();
   }
@@ -172,7 +143,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
     setState(() {
       _recentRefreshKey++;
     });
-    
+
     HapticFeedback.mediumImpact();
     await Future.delayed(const Duration(milliseconds: 800));
     return Future<void>.value();
@@ -209,8 +180,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
 
     var random = Random();
     for (int i = 0; i < 10; i++) {
-      posts
-          .add(Post("$text $i", "body random number : ${random.nextInt(100)}"));
+      posts.add(Post("$text $i", "body random number : ${random.nextInt(100)}"));
     }
     return posts;
   }
@@ -218,36 +188,31 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    
+
+    // Token update is already done in the PushNotificationService class
     // Add try-catch block around Firebase token retrieval
-    Future<void> initFirebaseMessaging() async {
-      try {
-        final messaging = FirebaseMessaging.instance;
-        final token = await messaging.getToken();
-        if (token != null && userId != null) {
-          await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(userId)
-            .update({'notificationToken': token});
-        }
-      } catch (e) {
-        print('Error getting Firebase token: $e');
-        // Handle error appropriately
-      }
-    }
-    
-    initFirebaseMessaging();
-    
+    // Future<void> initFirebaseMessaging() async {
+    //   try {
+    //     final messaging = FirebaseMessaging.instance;
+    //     final token = await messaging.getToken();
+    //     if (token != null && userId != null) {
+    //       await FirebaseFirestore.instance.collection('Users').doc(userId).update({'notificationToken': token});
+    //     }
+    //   } catch (e) {
+    //     print('Error getting Firebase token: $e');
+    //     // Handle error appropriately
+    //   }
+    // }
+
+    // initFirebaseMessaging();
+
     userId = FirebaseAuth.instance.currentUser?.uid;
     count = 0;
     _currentIndex = widget.currentIndex ?? 0;
     _pageController = PageController(initialPage: _currentIndex);
 
     _firebaseMessaging.getInitialMessage().then((message) {
-      FirebaseFirestore.instance
-          .collection('Users')
-          .doc(userId)
-          .update({'newChat': true});
+      FirebaseFirestore.instance.collection('Users').doc(userId).update({'newChat': true});
       if (message != null) {
         Navigator.push(
           context,
@@ -269,20 +234,17 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
         return;
       }
     });
-
-    FirebaseMessaging.onMessage.listen((message) {
-      FirebaseFirestore.instance
-          .collection('Users')
-          .doc(userId)
-          .update({'newChat': true});
-      final snackBar = SnackBar(
-        content: Text(message.data['notification']['body']),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
-      print(message);
-      print(message.data['data']['serviceProviderId']);
-      return;
-    });
+// TODO: ASK WHAT THIS DOES
+    // FirebaseMessaging.onMessage.listen((message) {
+    //   FirebaseFirestore.instance.collection('Users').doc(userId).update({'newChat': true});
+    //   final snackBar = SnackBar(
+    //     content: Text(message.data['notification']['body']),
+    //   );
+    //   ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    //   print(message);
+    //   print(message.data['data']['serviceProviderId']);
+    //   return;
+    // });
 
     getServiceProviderProfile();
     WidgetsBinding.instance.addObserver(this);
@@ -301,11 +263,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
     count = 0;
     await updatePromo();
 
-    FirebaseFirestore.instance
-        .collection("Homepage SuperUser")
-        .doc('$userId')
-        .get()
-        .then((value) {
+    FirebaseFirestore.instance.collection("Homepage SuperUser").doc('$userId').get().then((value) {
       if (value.exists) {
         subscriptionExpired = (value.data() as Map)['expired'];
         if (subscriptionExpired == true) {
@@ -319,72 +277,47 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
   }
 
   Future update() async {
-    FirebaseFirestore.instance
-        .collection('Users')
-        .get()
-        .then((QuerySnapshot querySnapshot) {
+    FirebaseFirestore.instance.collection('Users').get().then((QuerySnapshot querySnapshot) {
       querySnapshot.docs.forEach((doc) async {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(doc.id)
-            .set(doc.data() as Map<String, dynamic>);
+        await FirebaseFirestore.instance.collection('users').doc(doc.id).set(doc.data() as Map<String, dynamic>);
       });
     });
   }
 
   Future updatePromo() async {
-    FirebaseFirestore.instance
-      .collection('Users')
-      .get()
-      .then((QuerySnapshot querySnapshot) {
-        querySnapshot.docs.forEach((doc) async {
-          await FirebaseFirestore.instance
-            .collection('Homepage SuperUser')
-            .doc(doc.id)
-            .get()
-            .then((value) async {
-              if (value.exists) {
-                subscriptionExpired = (value.data() as Map<String, dynamic>)['expired'];
-                now = DateTime.now();
-                date = DateTime.fromMillisecondsSinceEpoch(
-                  (value.data() as Map<String, dynamic>)['expired_on']);
-                diff = date.difference(now);
-                if (diff.inDays >= 0 && diff.inHours >= 0) {
-                  await FirebaseFirestore.instance
-                    .collection('Homepage SuperUser')
-                    .doc(doc.id)
-                    .update({
-                      "expired": false,
-                      "notified": false,
-                    });
-                } else {
-                  await FirebaseFirestore.instance
-                    .collection('Homepage SuperUser')
-                    .doc(doc.id)
-                    .update({
-                      "expired": true,
-                      "plan": "",
-                      "notified": true,
-                    });
-                }
-              }
-            });
+    FirebaseFirestore.instance.collection('Users').get().then((QuerySnapshot querySnapshot) {
+      querySnapshot.docs.forEach((doc) async {
+        await FirebaseFirestore.instance.collection('Homepage SuperUser').doc(doc.id).get().then((value) async {
+          if (value.exists) {
+            subscriptionExpired = (value.data() as Map<String, dynamic>)['expired'];
+            now = DateTime.now();
+            date = DateTime.fromMillisecondsSinceEpoch((value.data() as Map<String, dynamic>)['expired_on']);
+            diff = date.difference(now);
+            if (diff.inDays >= 0 && diff.inHours >= 0) {
+              await FirebaseFirestore.instance.collection('Homepage SuperUser').doc(doc.id).update({
+                "expired": false,
+                "notified": false,
+              });
+            } else {
+              await FirebaseFirestore.instance.collection('Homepage SuperUser').doc(doc.id).update({
+                "expired": true,
+                "plan": "",
+                "notified": true,
+              });
+            }
+          }
         });
       });
+    });
   }
 
   Future checkBlock() async {
-    await FirebaseFirestore.instance
-        .collection('Users')
-        .doc(userId)
-        .get()
-        .then((value) {
+    await FirebaseFirestore.instance.collection('Users').doc(userId).get().then((value) {
       if (value.data() != null) {
         if ((value.data() as Map<String, dynamic>)['disabled'] == true) {
           Navigator.push(
             context,
-            MaterialPageRoute(
-                builder: (_) => BlockPage(currentUserId: userId!)),
+            MaterialPageRoute(builder: (_) => BlockPage(currentUserId: userId!)),
           );
         }
       }
@@ -398,10 +331,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .snapshots(),
+        stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(
@@ -438,7 +368,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                       builder: (context, snapshot) {
                         final hasUnread = snapshot.data ?? false;
                         print('BottomNav hasUnread: $hasUnread');
-                        
+
                         return BottomNavigationBar(
                           backgroundColor: Colors.white,
                           currentIndex: _currentIndex,
@@ -459,17 +389,15 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                               setState(() {
                                 _currentIndex = 4;
                               });
-                            } else if (index == 3) {  // Profile tab
+                            } else if (index == 3) {
+                              // Profile tab
                               // Check if user has a business account
-                              final userDoc = await FirebaseFirestore.instance
-                                  .collection('Users')
-                                  .doc(userId)
-                                  .get();
-                                
+                              final userDoc = await FirebaseFirestore.instance.collection('Users').doc(userId).get();
+
                               final hasBusinessAccount = userDoc.data()?['userRole'] == 'Business';
 
-                              if (!mounted) return;  // Check if widget is still mounted
-                              
+                              if (!mounted) return; // Check if widget is still mounted
+
                               if (hasBusinessAccount) {
                                 await Navigator.push(
                                   context,
@@ -485,7 +413,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                                   ),
                                 );
                               }
-                              
+
                               setState(() {
                                 _currentIndex = 3;
                               });
@@ -591,7 +519,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                 letterSpacing: -0.3,
               ),
             ),
-            Icon(Icons.search, color: Colors.black54),
+            const Icon(Icons.search, color: Colors.black54),
           ],
         ),
       ),
@@ -613,8 +541,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
             backgroundColor: const Color(0xFFFAFAFA),
             appBar: AppBar(
                 backgroundColor: Colors.white,
-                   surfaceTintColor: Colors.white,
-             
+                surfaceTintColor: Colors.white,
                 title: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -624,8 +551,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                         const SizedBox(width: 4),
                         Text(
                           country ?? 'Current Location',
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -636,18 +562,15 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                           height: 80,
                         ),
                         StreamBuilder<DocumentSnapshot>(
-                          stream: FirebaseFirestore.instance
-                              .collection('Users')
-                              .doc(userId)
-                              .snapshots(),
+                          stream: FirebaseFirestore.instance.collection('Users').doc(userId).snapshots(),
                           builder: (context, snapshot) {
                             if (!snapshot.hasData) {
                               return const Icon(Icons.notifications_outlined);
                             }
-                            
+
                             final userData = snapshot.data?.data() as Map<String, dynamic>?;
                             final unreadCount = userData?['unreadNotifications'] ?? 0;
-                            
+
                             return Stack(
                               children: [
                                 IconButton(
@@ -755,15 +678,15 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                           //       ),
                           //     ],
                           //   ),
-                            // child: ClipRRect(
-                            //   borderRadius: BorderRadius.circular(15),
-                            //   child: Image.asset(
-                            //     'assets/images/OFF-2.png',
-                            //     fit: BoxFit.cover,
-                            //     width: double.infinity,
-                            //   ),
-                            // ),
-                         // ),
+                          // child: ClipRRect(
+                          //   borderRadius: BorderRadius.circular(15),
+                          //   child: Image.asset(
+                          //     'assets/images/OFF-2.png',
+                          //     fit: BoxFit.cover,
+                          //     width: double.infinity,
+                          //   ),
+                          // ),
+                          // ),
                           const SizedBox(height: 20),
                           Padding(
                             padding: const EdgeInsets.only(left: 20, right: 20, bottom: 16),
@@ -834,7 +757,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                           ),
                           showRecentBusinesses(),
                           const SizedBox(height: 20),
-                          BannerSlideshow(),
+                          const BannerSlideshow(),
                           const SizedBox(height: 20),
                         ],
                       ),
@@ -859,29 +782,26 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
         animSpeedFactor: 2,
         child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           key: ValueKey(_promotedRefreshKey),
-          stream: FirebaseFirestore.instance
-              .collection('Users')
-              .where('userRole', isEqualTo: 'Business')
-              .snapshots(),
+          stream: FirebaseFirestore.instance.collection('Users').where('userRole', isEqualTo: 'Business').snapshots(),
           builder: (context, snapshot) {
             if (snapshot.hasError) return const Center(child: Text('Error'));
             if (!snapshot.hasData) return const CircularProgressIndicator();
 
             final now = DateTime.now();
-            
+
             // Filter users with active homepage promotions
             final validDocs = snapshot.data!.docs.where((doc) {
               final data = doc.data();
               final promotions = data['homepage_promotions'] as List?;
-              
+
               if (promotions == null || promotions.isEmpty) return false;
 
               return promotions.any((promo) {
                 if (promo['status'] != 'active') return false;
-                
+
                 final startDate = (promo['startDate'] as Timestamp).toDate();
                 final endDate = (promo['endDate'] as Timestamp).toDate();
-                
+
                 return now.isAfter(startDate) && now.isBefore(endDate);
               });
             }).toList();
@@ -927,7 +847,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
 
                                 final businessData = businessSnapshot.data?.data() as Map<String, dynamic>?;
                                 final userData = limitedDocs[i * 2].data() as Map<String, dynamic>;
-                                
+
                                 final combinedData = <String, dynamic>{
                                   ...userData,
                                   'category': businessData?['category'] ?? '',
@@ -955,7 +875,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
 
                                   final businessData = businessSnapshot.data?.data() as Map<String, dynamic>?;
                                   final userData = limitedDocs[i * 2 + 1].data() as Map<String, dynamic>;
-                                  
+
                                   final combinedData = <String, dynamic>{
                                     ...userData,
                                     'category': businessData?['category'] ?? '',
@@ -1053,12 +973,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(
-                      left: 12.0,
-                      right: 12.0,
-                      top: 12.0,
-                      bottom: 8.0
-                    ),
+                    padding: const EdgeInsets.only(left: 12.0, right: 12.0, top: 12.0, bottom: 8.0),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1133,8 +1048,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                               );
                             }
 
-                            double sum = ratings.fold(
-                                0, (prev, element) => prev + (element['rating'] ?? 0));
+                            double sum = ratings.fold(0, (prev, element) => prev + (element['rating'] ?? 0));
                             double averageRating = sum / ratings.length;
 
                             return Row(
@@ -1227,7 +1141,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
           }
 
           final docs = snapshot.data!.docs;
-          
+
           if (docs.isEmpty) {
             return const Center(
               child: Text(
@@ -1264,7 +1178,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
 
                       final businessData = businessSnapshot.data?.data() as Map<String, dynamic>?;
                       final userData = doc.data() as Map<String, dynamic>;
-                      
+
                       final combinedData = <String, dynamic>{
                         ...userData,
                         'category': businessData?['category'] ?? '',
@@ -1273,7 +1187,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12.0),
                         child: _buildVerticalUserContainer(
-                          doc.id, 
+                          doc.id,
                           combinedData,
                           isFirst: index == 0,
                         ),
@@ -1465,8 +1379,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                             );
                           }
 
-                          double sum = ratings.fold(
-                              0, (prev, element) => prev + (element['rating'] ?? 0));
+                          double sum = ratings.fold(0, (prev, element) => prev + (element['rating'] ?? 0));
                           double averageRating = sum / ratings.length;
 
                           return Row(
@@ -1519,10 +1432,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
 
   Widget showData2() {
     return FutureBuilder(
-      future: FirebaseFirestore.instance
-          .collection('Users')
-          .doc(serviceProviderId)
-          .get(),
+      future: FirebaseFirestore.instance.collection('Users').doc(serviceProviderId).get(),
       builder: (BuildContext context, AsyncSnapshot<DocumentSnapshot> snaps) {
         if (snaps.hasError) {
           return Container();
@@ -1533,12 +1443,8 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
           if ((snaps.data?.data() as Map)['country'] == country) {
             String? id = snaps.data?.id;
             return FutureBuilder(
-              future: FirebaseFirestore.instance
-                  .collection('Users/$id/BusinessAccount')
-                  .doc('detail')
-                  .get(),
-              builder: (BuildContext context,
-                  AsyncSnapshot<DocumentSnapshot> snapshot2) {
+              future: FirebaseFirestore.instance.collection('Users/$id/BusinessAccount').doc('detail').get(),
+              builder: (BuildContext context, AsyncSnapshot<DocumentSnapshot> snapshot2) {
                 if (!snapshot2.hasData) {
                   return Container();
                 } else {
@@ -1550,15 +1456,10 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                           builder: (_) => StoryProfiles(
                               UserProfiles(
                                   '$id',
-                                  (snaps.data?.data()
-                                      as Map<String, dynamic>)['name'],
-                                  (snaps.data?.data() as Map<String, dynamic>)[
-                                          'coverPhotoUrl'] ??
-                                      'default',
-                                  (snaps.data?.data()
-                                      as Map<String, dynamic>)['address'],
-                                  (snapshot2.data?.data()
-                                      as Map<String, dynamic>)['category']),
+                                  (snaps.data?.data() as Map<String, dynamic>)['name'],
+                                  (snaps.data?.data() as Map<String, dynamic>)['coverPhotoUrl'] ?? 'default',
+                                  (snaps.data?.data() as Map<String, dynamic>)['address'],
+                                  (snapshot2.data?.data() as Map<String, dynamic>)['category']),
                               userId!),
                         ),
                       );
@@ -1575,13 +1476,10 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                               child: Image(
                                 width: 140,
                                 height: 140,
-                                image: ((snaps.data?.data()
-                                            as Map)['coverPhotoUrl'] ==
-                                        null)
+                                image: ((snaps.data?.data() as Map)['coverPhotoUrl'] == null)
                                     ? const NetworkImage(
                                         "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png")
-                                    : NetworkImage((snaps.data?.data()
-                                        as Map)['coverPhotoUrl']),
+                                    : NetworkImage((snaps.data?.data() as Map)['coverPhotoUrl']),
                                 fit: BoxFit.cover,
                               ),
                             ),
@@ -1613,8 +1511,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      (snapshot2.data?.data()
-                                          as Map)['category'],
+                                      (snapshot2.data?.data() as Map)['category'],
                                       style: const TextStyle(
                                         fontSize: 12.0,
                                         color: Colors.grey,
@@ -1637,8 +1534,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                                 bottomLeft: Radius.circular(15),
                               ),
                             ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             child: const Text(
                               'Promoted',
                               style: TextStyle(
@@ -1663,30 +1559,22 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
   }
 
   checkSubscription() async {
-    await FirebaseFirestore.instance
-        .collection('Homepage SuperUser')
-        .doc('$userId')
-        .get()
-        .then((value) {
+    await FirebaseFirestore.instance.collection('Homepage SuperUser').doc('$userId').get().then((value) {
       if (value.exists) {
         setState(() {
           subscriptionExpired = (value.data() as Map)['expired'];
           now = DateTime.now();
-          date = DateTime.fromMillisecondsSinceEpoch(
-              (value.data() as Map)['expired_on']);
+          date = DateTime.fromMillisecondsSinceEpoch((value.data() as Map)['expired_on']);
           diff = date.difference(now);
         });
         if (subscriptionExpired == true) {
         } else {
           if ((diff.inHours - (diff.inDays * 24)) <= 0 && diff.inDays < 0) {
-            FirebaseFirestore.instance
-              .collection('Homepage SuperUser')
-              .doc('$userId')
-              .update({
-                "expired": true,
-                "plan": "",
-                "notified": true,
-              });
+            FirebaseFirestore.instance.collection('Homepage SuperUser').doc('$userId').update({
+              "expired": true,
+              "plan": "",
+              "notified": true,
+            });
           }
         }
       }
@@ -1696,25 +1584,17 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (userId == null) return;
-    
+
     if (state == AppLifecycleState.resumed) {
-      FirebaseFirestore.instance
-        .collection('Users')
-        .doc(userId)
-        .update({'status': 'Online'});
+      FirebaseFirestore.instance.collection('Users').doc(userId).update({'status': 'Online'});
     } else {
-      FirebaseFirestore.instance
-        .collection('Users')
-        .doc(userId)
-        .update({'status': 'Offline'});
+      FirebaseFirestore.instance.collection('Users').doc(userId).update({'status': 'Offline'});
     }
   }
 
   getServiceProviderProfile() async {
-    QuerySnapshot<Map> allSuperUsers = await FirebaseFirestore.instance
-        .collection('Homepage SuperUser')
-        .where("expired", isEqualTo: false)
-        .get();
+    QuerySnapshot<Map> allSuperUsers =
+        await FirebaseFirestore.instance.collection('Homepage SuperUser').where("expired", isEqualTo: false).get();
     setState(() {
       loadingUsers = true;
     });
@@ -1737,11 +1617,9 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
     try {
       LocationPermission permission;
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.always ||
-          permission == LocationPermission.whileInUse) {
-        Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high);
-            
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+
         // Simply set a default country or get it from your backend
         setState(() {
           country = 'Romania'; // Or get this from your backend/settings
@@ -1781,17 +1659,15 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
           setState(() {
             _currentIndex = 4;
           });
-        } else if (index == 3) {  // Profile tab
+        } else if (index == 3) {
+          // Profile tab
           // Check if user has a business account
-          final userDoc = await FirebaseFirestore.instance
-              .collection('Users')
-              .doc(userId)
-              .get();
-            
+          final userDoc = await FirebaseFirestore.instance.collection('Users').doc(userId).get();
+
           final hasBusinessAccount = userDoc.data()?['userRole'] == 'Business';
 
-          if (!mounted) return;  // Check if widget is still mounted
-          
+          if (!mounted) return; // Check if widget is still mounted
+
           if (hasBusinessAccount) {
             await Navigator.push(
               context,
@@ -1807,7 +1683,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
               ),
             );
           }
-          
+
           setState(() {
             _currentIndex = 3;
           });
@@ -1855,10 +1731,8 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                         .where('status', isEqualTo: 'pending')
                         .snapshots(),
                     builder: (context, bookingSnapshot) {
-                      bool hasUnreadMessages = chatSnapshot.hasData && 
-                          chatSnapshot.data!.docs.isNotEmpty;
-                      bool hasNewBookings = bookingSnapshot.hasData && 
-                          bookingSnapshot.data!.docs.isNotEmpty;
+                      bool hasUnreadMessages = chatSnapshot.hasData && chatSnapshot.data!.docs.isNotEmpty;
+                      bool hasNewBookings = bookingSnapshot.hasData && bookingSnapshot.data!.docs.isNotEmpty;
 
                       if (hasUnreadMessages || hasNewBookings) {
                         return Positioned(
@@ -1902,10 +1776,8 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                         .where('status', isEqualTo: 'pending')
                         .snapshots(),
                     builder: (context, bookingSnapshot) {
-                      bool hasUnreadMessages = chatSnapshot.hasData && 
-                          chatSnapshot.data!.docs.isNotEmpty;
-                      bool hasNewBookings = bookingSnapshot.hasData && 
-                          bookingSnapshot.data!.docs.isNotEmpty;
+                      bool hasUnreadMessages = chatSnapshot.hasData && chatSnapshot.data!.docs.isNotEmpty;
+                      bool hasNewBookings = bookingSnapshot.hasData && bookingSnapshot.data!.docs.isNotEmpty;
 
                       if (hasUnreadMessages || hasNewBookings) {
                         return Positioned(
@@ -1972,32 +1844,31 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
         .snapshots()
         .asyncMap((chatRooms) async {
       print('Found ${chatRooms.docs.length} chat rooms');
-      
+
       for (var room in chatRooms.docs) {
         print('Checking chat room: ${room.id}');
-        
+
         final messages = await FirebaseFirestore.instance
             .collection('ChatRoom')
             .doc(room.id)
             .collection('chats')
-            .orderBy('time', descending: true)  // Add ordering
+            .orderBy('time', descending: true) // Add ordering
             .get();
 
         print('Room ${room.id} has ${messages.docs.length} total messages');
-        
+
         for (var doc in messages.docs) {
           final messageData = doc.data();
           print('Message ID: ${doc.id}');
           print('Message data: ${messageData.toString()}');
-          
-          if (messageData['sender'] != userId && 
-              messageData['unread'] == true) {
+
+          if (messageData['sender'] != userId && messageData['unread'] == true) {
             print('Found unread message with ID: ${doc.id}');
             return true;
           }
         }
       }
-      
+
       print('No unread messages found');
       return false;
     });
@@ -2018,7 +1889,6 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                 children: <Widget>[
                   Row(
                     children: [
-                   
                       const SizedBox(width: 2),
                       RichText(
                         text: TextSpan(
@@ -2077,7 +1947,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
               print('Bookings Stream Status: ${snapshot.connectionState}');
               print('Has Data: ${snapshot.hasData}');
               print('Has Error: ${snapshot.hasError}');
-              
+
               if (snapshot.hasError) {
                 print('Error: ${snapshot.error}');
                 return Center(child: Text('Error: ${snapshot.error}'));
@@ -2089,7 +1959,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
 
               final bookings = snapshot.data!.docs;
               print('Number of bookings found: ${bookings.length}');
-              
+
               if (bookings.isEmpty) {
                 return Center(
                   child: Text(
@@ -2112,10 +1982,7 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
                   print('Building item for provider ID: $serviceProviderId');
 
                   return FutureBuilder<DocumentSnapshot>(
-                    future: FirebaseFirestore.instance
-                        .collection('Users')
-                        .doc(serviceProviderId)
-                        .get(),
+                    future: FirebaseFirestore.instance.collection('Users').doc(serviceProviderId).get(),
                     builder: (context, providerSnapshot) {
                       if (!providerSnapshot.hasData) {
                         return const SizedBox(
@@ -2186,11 +2053,11 @@ class TopText extends StatelessWidget {
               Row(
                 children: [
                   Image.asset(
-                    'assets/images/money-bag.png',  // Make sure this image exists in your assets
+                    'assets/images/money-bag.png', // Make sure this image exists in your assets
                     width: 24,
                     height: 24,
                   ),
-                  const SizedBox(width: 2),  // Small spacing
+                  const SizedBox(width: 2), // Small spacing
                   RichText(
                     text: TextSpan(
                       children: [
@@ -2271,20 +2138,14 @@ class Appbar extends StatelessWidget {
                       icon: const Icon(Icons.favorite_border),
                       iconSize: 30,
                       onPressed: () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const FavoriteProviders()));
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const FavoriteProviders()));
                       },
                     ),
                     IconButton(
                       icon: const Icon(Icons.calendar_month),
                       iconSize: 30,
                       onPressed: () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const BookingOrdersScreen()));
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const BookingOrdersScreen()));
                       },
                     ),
                     IconButton(
@@ -2305,10 +2166,7 @@ class Appbar extends StatelessWidget {
                       icon: const Icon(Icons.send),
                       iconSize: 30,
                       onPressed: () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const MessageList()));
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const MessageList()));
                       },
                     ),
                   ],
@@ -2319,6 +2177,8 @@ class Appbar extends StatelessWidget {
 }
 
 class BannerSlideshow extends StatefulWidget {
+  const BannerSlideshow({super.key});
+
   @override
   _BannerSlideshowState createState() => _BannerSlideshowState();
 }
@@ -2340,7 +2200,7 @@ class _BannerSlideshowState extends State<BannerSlideshow> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 150,
       child: Stack(
         children: [
@@ -2399,9 +2259,7 @@ class _BannerSlideshowState extends State<BannerSlideshow> {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _currentPage == index
-                        ? Colors.red
-                        : Colors.grey.withOpacity(0.5),
+                    color: _currentPage == index ? Colors.red : Colors.grey.withOpacity(0.5),
                   ),
                 ),
               ),
