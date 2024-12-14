@@ -4,6 +4,8 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -26,6 +28,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>MinimumOSVersion</key>
+	<string>13.0</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>This app needs calendar access to schedule and manage your bookings</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to scan QR codes and take photos</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
@@ -34,20 +40,19 @@
 	<string>This app needs access to location when in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs location access to show nearby services</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app needs photos access to let you choose profile pictures and share images</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access for voice messages</string>
 	<key>NSNotificationsUsageDescription</key>
 	<string>This app needs to send you notifications about new messages and bookings</string>
-	<key>NSCalendarsUsageDescription</key>
-	<string>This app needs calendar access to schedule and manage your bookings</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photos access to let you choose profile pictures and share images</string>
 	<key>OneSignal_app_groups_key</key>
 	<string>com.svapps.acumacum.onesignal</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
@@ -61,8 +66,6 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
-	<key>MinimumOSVersion</key>
-	<string>13.0</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 </dict>

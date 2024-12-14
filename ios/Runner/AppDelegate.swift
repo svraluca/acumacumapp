@@ -10,16 +10,16 @@ import OneSignalFramework
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
     
-    // Remove this method to stop OneSignal Debugging
-    OneSignal.Debug.setLogLevel(.LL_VERBOSE)
+    // // Remove this method to stop OneSignal Debugging
+    // OneSignal.Debug.setLogLevel(.LL_VERBOSE)
     
-    // OneSignal initialization
-    OneSignal.initialize("0717fd2b-d830-4863-8b7a-bea31b02b92a")
+    // // OneSignal initialization
+    // OneSignal.initialize("0717fd2b-d830-4863-8b7a-bea31b02b92a")
     
-    // Request notification permission
-    OneSignal.Notifications.requestPermission({ accepted in
-      print("User accepted notifications: \(accepted)")
-    }, fallbackToSettings: true)
+    // // Request notification permission
+    // OneSignal.Notifications.requestPermission({ accepted in
+    //   print("User accepted notifications: \(accepted)")
+    // }, fallbackToSettings: true)
     
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

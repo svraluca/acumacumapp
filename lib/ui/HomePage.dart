@@ -189,21 +189,22 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
 
+    // Token update is already done in the PushNotificationService class
     // Add try-catch block around Firebase token retrieval
-    Future<void> initFirebaseMessaging() async {
-      try {
-        final messaging = FirebaseMessaging.instance;
-        final token = await messaging.getToken();
-        if (token != null && userId != null) {
-          await FirebaseFirestore.instance.collection('Users').doc(userId).update({'notificationToken': token});
-        }
-      } catch (e) {
-        print('Error getting Firebase token: $e');
-        // Handle error appropriately
-      }
-    }
+    // Future<void> initFirebaseMessaging() async {
+    //   try {
+    //     final messaging = FirebaseMessaging.instance;
+    //     final token = await messaging.getToken();
+    //     if (token != null && userId != null) {
+    //       await FirebaseFirestore.instance.collection('Users').doc(userId).update({'notificationToken': token});
+    //     }
+    //   } catch (e) {
+    //     print('Error getting Firebase token: $e');
+    //     // Handle error appropriately
+    //   }
+    // }
 
-    initFirebaseMessaging();
+    // initFirebaseMessaging();
 
     userId = FirebaseAuth.instance.currentUser?.uid;
     count = 0;
@@ -233,17 +234,17 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
         return;
       }
     });
-
-    FirebaseMessaging.onMessage.listen((message) {
-      FirebaseFirestore.instance.collection('Users').doc(userId).update({'newChat': true});
-      final snackBar = SnackBar(
-        content: Text(message.data['notification']['body']),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
-      print(message);
-      print(message.data['data']['serviceProviderId']);
-      return;
-    });
+// TODO: ASK WHAT THIS DOES
+    // FirebaseMessaging.onMessage.listen((message) {
+    //   FirebaseFirestore.instance.collection('Users').doc(userId).update({'newChat': true});
+    //   final snackBar = SnackBar(
+    //     content: Text(message.data['notification']['body']),
+    //   );
+    //   ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    //   print(message);
+    //   print(message.data['data']['serviceProviderId']);
+    //   return;
+    // });
 
     getServiceProviderProfile();
     WidgetsBinding.instance.addObserver(this);

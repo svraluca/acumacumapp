@@ -1,11 +1,8 @@
-import 'dart:io';
-
 import 'package:acumacum/notifications_setup/logging/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 final FlutterLocalNotificationsPlugin _localNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -49,15 +46,7 @@ class PushNotificationService {
   Future<void> startListeningToNotification() async {
     final bool permission = await _getNotificationPermission();
     if (permission) {
-      if (kIsWeb) {
-        _logger.i(await _messaging.getToken(
-            vapidKey: 'BHfsvfBkUMmysePtLIXAKA0bOwvFMNmklr0KBnq4-Xr-0LIGpxuymP-JvdM8hohotAit4CNMAFu2enT5FeCR4hg'));
-      } else {
-        if (Platform.isIOS) {
-          _logger.i(await _messaging.getAPNSToken());
-        }
-        _logger.i(await _messaging.getToken());
-      }
+      _logger.i(await _messaging.getToken());
       _appIsMinimizedNotTerminated();
       _appIsOpened();
       _backgroundNotificationHandler();
@@ -118,9 +107,9 @@ class PushNotificationService {
     _messaging.onTokenRefresh.listen((fcmToken) async {
       _logger.i('Token refreshed');
       _logger.i(fcmToken);
-      final token = Platform.isIOS ? await getIosToken() : await getAndroidToken();
+      final token = fcmToken;
       final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-      if (token != null && currentUserId != null) {
+      if (currentUserId != null) {
         await FirebaseFirestore.instance.collection('Users').doc(currentUserId).update({
           'fcmToken': token,
         });

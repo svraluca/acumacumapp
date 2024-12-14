@@ -129,8 +129,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> updateFCMToken() async {
     PushNotificationService pushNotificationService = PushNotificationService();
-    final token =
-        Platform.isIOS ? await pushNotificationService.getIosToken() : await pushNotificationService.getAndroidToken();
+    final token = await pushNotificationService.getAndroidToken();
     if (token != null && currentUserId != null) {
       await FirebaseFirestore.instance.collection('Users').doc(currentUserId).update({
         'fcmToken': token,
