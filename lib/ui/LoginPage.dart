@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:acumacum/notifications_setup/push_notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -15,8 +16,7 @@ Future<void> main() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   var email = prefs.getString('email');
   print(email);
-  runApp(
-      MaterialApp(home: email == null ? const LoginPage() : const Homepage()));
+  runApp(MaterialApp(home: email == null ? const LoginPage() : const Homepage()));
 }
 
 class LoginPage extends StatefulWidget {
@@ -150,8 +150,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             const SizedBox(height: 30),
                             TextFormField(
-                              validator: (val) =>
-                                  val!.length < 8 ? 'enter password > 8 digits' : null,
+                              validator: (val) => val!.length < 8 ? 'enter password > 8 digits' : null,
                               onChanged: (val) {
                                 setState(() => password = val);
                               },
@@ -197,11 +196,11 @@ class _LoginPageState extends State<LoginPage> {
                                   SharedPreferences prefs = await SharedPreferences.getInstance();
                                   if (_formKey.currentState!.validate()) {
                                     setState(() => loading = true);
-                                    
+
                                     Response result = await authentication.signInWithEmailAndPassword(email, password);
-                                    
+
                                     if (!mounted) return; // Check if widget is still mounted
-                                    
+
                                     print('result at login page ${result.messages.toString()}');
                                     if (result.error == true) {
                                       setState(() {
@@ -215,17 +214,16 @@ class _LoginPageState extends State<LoginPage> {
 
                                       if (!mounted) return; // Check again after async operation
 
-                                      DocumentSnapshot<Map<String, dynamic>?> userData = 
-                                          await FirebaseFirestore.instance
-                                              .collection('Users')
-                                              .doc(result.data)
-                                              .get();
+                                      DocumentSnapshot<Map<String, dynamic>?> userData =
+                                          await FirebaseFirestore.instance.collection('Users').doc(result.data).get();
 
                                       if (!mounted) return; // Check again after Firebase call
 
                                       if (userData.exists) {
-                                        Navigator.pushReplacement(context,
-                                            MaterialPageRoute(builder: (context) => const Homepage()));
+                                        PushNotificationService messagingService = PushNotificationService();
+                                        messagingService.onTokenRefresh();
+                                        Navigator.pushReplacement(
+                                            context, MaterialPageRoute(builder: (context) => const Homepage()));
                                       } else {
                                         setState(() {
                                           error = 'User does not exist';
@@ -260,19 +258,14 @@ class _LoginPageState extends State<LoginPage> {
                                         content: Column(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            const Text(
-                                                "Reset your password by email"),
+                                            const Text("Reset your password by email"),
                                             TextFormField(
-                                              validator: (val) => val!.isEmpty
-                                                  ? 'Enter Email'
-                                                  : null,
+                                              validator: (val) => val!.isEmpty ? 'Enter Email' : null,
                                               onChanged: (val) {
                                                 setState(() => email = val);
                                               },
-                                              style: const TextStyle(
-                                                  color: Colors.white),
-                                              decoration:
-                                                  const InputDecoration(
+                                              style: const TextStyle(color: Colors.white),
+                                              decoration: const InputDecoration(
                                                 hintText: 'Email',
                                                 hintStyle: TextStyle(
                                                   fontFamily: 'Antra',
@@ -282,18 +275,13 @@ class _LoginPageState extends State<LoginPage> {
                                               ),
                                             ),
                                             ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors.black),
+                                              style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
                                               onPressed: () {
-                                                FirebaseAuth.instance
-                                                    .sendPasswordResetEmail(
-                                                        email: email);
+                                                FirebaseAuth.instance.sendPasswordResetEmail(email: email);
                                               },
                                               child: const Text(
                                                 "Reseteaza",
-                                                style: TextStyle(
-                                                    color: Colors.white),
+                                                style: TextStyle(color: Colors.white),
                                               ),
                                             )
                                           ],
@@ -377,8 +365,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget _createAccountLabel() {
     return InkWell(
       onTap: () {
-        Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const SignupPage()));
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const SignupPage()));
       },
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 20),
@@ -396,10 +383,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
             Text(
               'Register',
-              style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600),
+              style: TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ],
         ),

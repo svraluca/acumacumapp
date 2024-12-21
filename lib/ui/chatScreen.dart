@@ -1,8 +1,10 @@
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:acumacum/notifications_setup/cloud_functions/app_cloud_functions.dart';
 import 'package:acumacum/notifications_setup/push_notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -12,7 +14,7 @@ import 'package:acumacum/ui/HomePage.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:rxdart/rxdart.dart';
 
-import 'dart:async' show unawaited;
+import 'dart:async' show StreamSubscription, unawaited;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -125,9 +127,29 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // Update FCM token when chat screen opens
     updateFCMToken();
+
+    // add code that listens for new messages
+    // _listenForNewMessages();
   }
 
+  // void _listenForNewMessages() {
+  //   _messageSubscription = FirebaseFirestore.instance
+  //       .collection('chatRooms')
+  //       .doc(getChatRoomId())
+  //       .collection('messages')
+  //       .orderBy('timestamp', descending: true)
+  //       .snapshots()
+  //       .listen((QuerySnapshot snapshot) {
+  //     for (var change in snapshot.docChanges) {
+  //       if (change.type == DocumentChangeType.added) {
+  //         checkAndSendNotification(change.doc.data() as Map<String, dynamic>);
+  //       }
+  //     }
+  //   });
+  // }
+
   Future<void> updateFCMToken() async {
+    log('Updating FCM Token...');
     PushNotificationService pushNotificationService = PushNotificationService();
     final token = await pushNotificationService.getAndroidToken();
     if (token != null && currentUserId != null) {
@@ -148,47 +170,66 @@ class _ChatScreenState extends State<ChatScreen> {
     Future(() async {
       try {
         final chatRoomId = getChatRoomId();
-        final messageDoc = messageColl.doc(chatRoomId).collection("chats").doc();
-
-        // Send the message
-        await messageDoc.set({
+        final result = await AppCloudFunctionService().sendMessageToFirestore({
+          'message': messageText,
           'sender': currentUserId,
           'time': DateTime.now(),
           'type': 'text',
-          'message': messageText,
           'unread': true,
+          'name': currentName ?? 'New Message',
+          'chatRoomId': chatRoomId,
+          'rid': widget.serviceProviderId,
         });
 
-        // Get recipient's FCM token
-        final recipientDoc = await FirebaseFirestore.instance.collection('Users').doc(widget.serviceProviderId).get();
+        if (result) {
+          await messageColl.doc(chatRoomId).set({
+            "users": [currentUserId, widget.serviceProviderId],
+            "chatRoomId": chatRoomId,
+            "lastMessage": messageText,
+            "lastMessageTime": DateTime.now(),
+            "unreadCount": FieldValue.increment(1),
+          }, SetOptions(merge: true));
 
-        final recipientToken = recipientDoc.data()?['fcmToken'];
-
-        if (recipientToken != null) {
-          // Send FCM notification using Cloud Functions
-          await FirebaseFirestore.instance.collection('notifications').add({
-            'token': recipientToken,
-            'title': currentName ?? 'New Message',
-            'body': messageText,
-            'data': {
-              'chatRoomId': chatRoomId,
-              'type': 'chat_message',
-              'senderId': currentUserId,
-            },
-            'timestamp': FieldValue.serverTimestamp(),
-          });
+          _scrollToBottom();
+        } else {
+          log('Error sending message');
         }
 
-        // Update chat room metadata
-        await messageColl.doc(chatRoomId).set({
-          "users": [currentUserId, widget.serviceProviderId],
-          "chatRoomId": chatRoomId,
-          "lastMessage": messageText,
-          "lastMessageTime": DateTime.now(),
-          "unreadCount": FieldValue.increment(1),
-        }, SetOptions(merge: true));
+        // WriteBatch batch = FirebaseFirestore.instance.batch();
+        // final chatRoomId = getChatRoomId();
+        // batch.set(messageColl.doc(chatRoomId).collection("chats").doc(), {
+        //   'sender': currentUserId,
+        //   'time': DateTime.now(),
+        //   'type': 'text',
+        //   'message': messageText,
+        //   'unread': true,
+        // });
+        // final recipientDoc = await FirebaseFirestore.instance.collection('Users').doc(widget.serviceProviderId).get();
+        // final recipientToken = recipientDoc.data()?['fcmToken'];
+        // // Send FCM notification
+        // batch.set(FirebaseFirestore.instance.collection('notifications').doc(), {
+        //   'token': recipientToken,
+        //   'title': currentName ?? 'New Message',
+        //   'body': messageText,
+        //   'data': {'chatRoomId': chatRoomId, 'type': 'chat_message'},
+        //   'timestamp': FieldValue.serverTimestamp(),
+        // });
 
-        _scrollToBottom();
+        // await batch.commit();
+        // check if document exists
+
+        // // Send the message
+        // await messageDoc.set({
+        //   'sender': currentUserId,
+        //   'time': DateTime.now(),
+        //   'type': 'text',
+        //   'message': messageText,
+        //   'unread': true,
+        // });
+
+        // Get recipient's FCM token
+
+        // Update chat room metadata
       } catch (e) {
         print('Error sending message: $e');
       }
@@ -413,14 +454,14 @@ class _ChatScreenState extends State<ChatScreen> {
                   }
 
                   // Check for new messages
-                  if (snapshot.hasData && snapshot.data != null) {
-                    for (var change in snapshot.data!.docChanges) {
-                      if (change.type == DocumentChangeType.added) {
-                        final messageData = change.doc.data() as Map<String, dynamic>;
-                        checkAndSendNotification(messageData);
-                      }
-                    }
-                  }
+                  // if (snapshot.hasData && snapshot.data != null) {
+                  //   for (var change in snapshot.data!.docChanges) {
+                  //     if (change.type == DocumentChangeType.added) {
+                  //       final messageData = change.doc.data() as Map<String, dynamic>;
+                  //       //checkAndSendNotification(messageData);
+                  //     }
+                  //   }
+                  // }
 
                   print('Number of messages: ${snapshot.data!.docs.length}');
 
@@ -1831,57 +1872,57 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   // Add this method to check and send notifications for unread messages
-  void checkAndSendNotification(Map<String, dynamic> messageData) async {
-    print('Checking notification for message: $messageData');
+  // void checkAndSendNotification(Map<String, dynamic> messageData) async {
+  //   print('Checking notification for message: $messageData');
 
-    // Only send notification if message is unread and current user is not the sender
-    if (messageData['unread'] == true && messageData['sender'] != currentUserId) {
-      print('Message qualifies for notification');
-      print('Sender ID: ${messageData['sender']}');
-      print('Current User ID: $currentUserId');
+  //   // Only send notification if message is unread and current user is not the sender
+  //   if (messageData['unread'] == true && messageData['sender'] != currentUserId) {
+  //     print('Message qualifies for notification');
+  //     print('Sender ID: ${messageData['sender']}');
+  //     print('Current User ID: $currentUserId');
 
-      try {
-        // Get sender's name
-        final senderDoc = await FirebaseFirestore.instance.collection('Users').doc(messageData['sender']).get();
+  //     try {
+  //       // Get sender's name
+  //       final senderDoc = await FirebaseFirestore.instance.collection('Users').doc(messageData['sender']).get();
 
-        final senderName = senderDoc.data()?['name'] ?? 'Someone';
-        print('Sender Name: $senderName');
+  //       final senderName = senderDoc.data()?['name'] ?? 'Someone';
+  //       print('Sender Name: $senderName');
 
-        // Get recipient's FCM token
-        final recipientId =
-            currentUserId == widget.serviceProviderId ? messageData['sender'] : widget.serviceProviderId;
+  //       // Get recipient's FCM token
+  //       final recipientId =
+  //           currentUserId == widget.serviceProviderId ? messageData['sender'] : widget.serviceProviderId;
 
-        print('Recipient ID: $recipientId');
+  //       print('Recipient ID: $recipientId');
 
-        final recipientDoc = await FirebaseFirestore.instance.collection('Users').doc(recipientId).get();
+  //       final recipientDoc = await FirebaseFirestore.instance.collection('Users').doc(recipientId).get();
 
-        final recipientToken = recipientDoc.data()?['fcmToken'];
-        print('Recipient Token: $recipientToken');
+  //       final recipientToken = recipientDoc.data()?['fcmToken'];
+  //       print('Recipient Token: $recipientToken');
 
-        if (recipientToken != null) {
-          // Send FCM notification using Cloud Functions
-          await FirebaseFirestore.instance.collection('notifications').add({
-            'token': recipientToken,
-            'title': currentName ?? 'New Message',
-            'body': messageData['message'] ?? 'New message',
-            'data': {
-              'chatRoomId': getChatRoomId(),
-              'type': 'chat_message',
-              'senderId': messageData['sender'],
-            },
-            'timestamp': FieldValue.serverTimestamp(),
-          });
-        } else {
-          print('No FCM Token found for recipient');
-        }
-      } catch (e, stackTrace) {
-        print('Error sending notification: $e');
-        print('Stack trace: $stackTrace');
-      }
-    } else {
-      print('Message does not qualify for notification');
-    }
-  }
+  //       if (recipientToken != null) {
+  //         // Send FCM notification using Cloud Functions
+  //         await FirebaseFirestore.instance.collection('notifications').add({
+  //           'token': recipientToken,
+  //           'title': currentName ?? 'New Message',
+  //           'body': messageData['message'] ?? 'New message',
+  //           'data': {
+  //             'chatRoomId': getChatRoomId(),
+  //             'type': 'chat_message',
+  //             'senderId': messageData['sender'],
+  //           },
+  //           'timestamp': FieldValue.serverTimestamp(),
+  //         });
+  //       } else {
+  //         print('No FCM Token found for recipient');
+  //       }
+  //     } catch (e, stackTrace) {
+  //       print('Error sending notification: $e');
+  //       print('Stack trace: $stackTrace');
+  //     }
+  //   } else {
+  //     print('Message does not qualify for notification');
+  //   }
+  // }
 }
 
 // ignore: must_be_immutable

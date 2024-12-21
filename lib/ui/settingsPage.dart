@@ -1,3 +1,4 @@
+import 'package:acumacum/notifications_setup/push_notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
@@ -121,13 +122,11 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(
               height: 10,
             ),
-           myPanel(context, "Vezi statistici"),
+            myPanel(context, "Vezi statistici"),
             buttonResetPass(context, "Reseteaza parola"),
             disableAccount(context, "Dezactiveaza contul"),
             deleteAccount(context, "Sterge contul"),
-            widget.user.userRole == 'Customer'
-                ? Container()
-                : promoteAccount(context, "Promovare"),
+            widget.user.userRole == 'Customer' ? Container() : promoteAccount(context, "Promovare"),
             termsAndConditions(context, "Termeni & Conditii"),
             privacyAndSecurity(context, "Confidentialitate & Securitate"),
             generateQR(context, "Genereaza QR-Code"),
@@ -162,9 +161,7 @@ class _SettingsPageState extends State<SettingsPage> {
               height: 10,
             ),
             buildNotificationOptionRow("New for you", true),
-            widget.user.userRole == 'Customer'
-                ? Container()
-                : buildNotificationOptionRow("Opportunity", true),
+            widget.user.userRole == 'Customer' ? Container() : buildNotificationOptionRow("Opportunity", true),
             const SizedBox(
               height: 50,
             ),
@@ -172,20 +169,17 @@ class _SettingsPageState extends State<SettingsPage> {
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 ),
                 onPressed: () {
                   FirebaseAuth.instance.signOut();
+                  PushNotificationService messagingService = PushNotificationService();
+                  messagingService.deleteFCMToken();
                   Navigator.pop(context);
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const GetstartedScreen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const GetstartedScreen()));
                 },
                 child: const Text("Delogheaza-te",
-                    style: TextStyle(
-                        fontSize: 16, letterSpacing: 2.2, color: Colors.black)),
+                    style: TextStyle(fontSize: 16, letterSpacing: 2.2, color: Colors.black)),
               ),
             ),
             const SizedBox(height: 48),
@@ -207,11 +201,8 @@ class _SettingsPageState extends State<SettingsPage> {
       children: [
         Text(
           title,
-          style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              fontFamily: '.SF UI Display',
-              color: Colors.black87),
+          style: const TextStyle(
+              fontSize: 16, fontWeight: FontWeight.w400, fontFamily: '.SF UI Display', color: Colors.black87),
         ),
         Transform.scale(
             scale: 0.7,
@@ -240,7 +231,7 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 fontFamily: '.SF UI Display',
@@ -277,21 +268,16 @@ class _SettingsPageState extends State<SettingsPage> {
                       style: const TextStyle(color: Colors.black),
                       decoration: const InputDecoration(
                           hintText: 'Enter email',
-                          hintStyle: TextStyle(
-                              fontFamily: 'Antra',
-                              fontSize: 12.0,
-                              color: Colors.black)),
+                          hintStyle: TextStyle(fontFamily: 'Antra', fontSize: 12.0, color: Colors.black)),
                     ),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                       child: const Text(
                         "Reset",
                         style: TextStyle(color: Colors.white),
                       ),
                       onPressed: () {
-                        FirebaseAuth.instance
-                            .sendPasswordResetEmail(email: email);
+                        FirebaseAuth.instance.sendPasswordResetEmail(email: email);
                       },
                     )
                   ],
@@ -313,7 +299,7 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 fontFamily: '.SF UI Display',
@@ -353,19 +339,14 @@ class _SettingsPageState extends State<SettingsPage> {
                             backgroundColor: Colors.blue,
                           ),
                           onPressed: () async {
-                            await FirebaseFirestore.instance
-                                .collection('Users')
-                                .doc(curretnUserId)
-                                .update({
+                            await FirebaseFirestore.instance.collection('Users').doc(curretnUserId).update({
                               'disabled': true,
                             }).then((value) => {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (_) => BlockPage(
-                                                currentUserId: curretnUserId)),
-                                      )
-                                    });
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => BlockPage(currentUserId: curretnUserId)),
+                                  )
+                                });
                           },
                           child: const Text(
                             "Yes",
@@ -407,7 +388,7 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 fontFamily: '.SF UI Display',
@@ -455,28 +436,18 @@ class _SettingsPageState extends State<SettingsPage> {
                                 .get()
                                 .then((value) async {
                               if (value.exists) {
-                                String cat = (value.data()
-                                    as Map<String, dynamic>)['category'];
-                                await FirebaseFirestore.instance
-                                    .collection(cat)
-                                    .doc(curretnUserId)
-                                    .delete();
-                                await FirebaseFirestore.instance
-                                    .collection('dusers')
-                                    .doc(curretnUserId)
-                                    .delete();
+                                String cat = (value.data() as Map<String, dynamic>)['category'];
+                                await FirebaseFirestore.instance.collection(cat).doc(curretnUserId).delete();
+                                await FirebaseFirestore.instance.collection('dusers').doc(curretnUserId).delete();
                                 await FirebaseFirestore.instance
                                     .collection("Users")
                                     .doc(curretnUserId)
                                     .get()
                                     .then((value) async {
-                                  var name = (value.data()
-                                      as Map<String, dynamic>)['name'];
+                                  var name = (value.data() as Map<String, dynamic>)['name'];
                                   await FirebaseFirestore.instance
                                       .collection('ChatRoom')
-                                      .where("users",
-                                          arrayContains:
-                                              '$name($curretnUserId)')
+                                      .where("users", arrayContains: '$name($curretnUserId)')
                                       .get()
                                       .then((snapshot) {
                                     for (DocumentSnapshot ds in snapshot.docs) {
@@ -487,27 +458,18 @@ class _SettingsPageState extends State<SettingsPage> {
 
                                 FirebaseAuth.instance.signOut();
                                 Navigator.pop(context);
-                                Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => const LoginScreen()));
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
                               } else {
-                                await FirebaseFirestore.instance
-                                    .collection('dusers')
-                                    .doc(curretnUserId)
-                                    .delete();
+                                await FirebaseFirestore.instance.collection('dusers').doc(curretnUserId).delete();
                                 await FirebaseFirestore.instance
                                     .collection("Users")
                                     .doc(curretnUserId)
                                     .get()
                                     .then((value) async {
-                                  var name = (value.data()
-                                      as Map<String, dynamic>)['name'];
+                                  var name = (value.data() as Map<String, dynamic>)['name'];
                                   await FirebaseFirestore.instance
                                       .collection('ChatRoom')
-                                      .where("users",
-                                          arrayContains:
-                                              '$name($curretnUserId)')
+                                      .where("users", arrayContains: '$name($curretnUserId)')
                                       .get()
                                       .then((snapshot) {
                                     for (DocumentSnapshot ds in snapshot.docs) {
@@ -518,10 +480,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                                 FirebaseAuth.instance.signOut();
                                 Navigator.pop(context);
-                                Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => const LoginScreen()));
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
                               }
                             });
                           },
@@ -565,7 +524,7 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 fontFamily: '.SF UI Display',
@@ -631,7 +590,7 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 fontFamily: '.SF UI Display',
@@ -697,7 +656,7 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 fontFamily: '.SF UI Display',
@@ -751,7 +710,7 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 fontFamily: '.SF UI Display',
