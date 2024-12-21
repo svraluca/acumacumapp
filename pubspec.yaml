@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.2+8
+version: 1.0.0+8
 
 environment:
   sdk: ">=3.4.0-282.1.beta <4.0.0"
@@ -31,21 +31,21 @@ dependencies:
   flutter:
     sdk: flutter
 
-  firebase_core: ^3.3.0
-  firebase_analytics: ^11.2.1
-  cloud_firestore: ^5.2.0
-  firebase_auth: ^5.1.3
+  firebase_core: 3.3.0
+  firebase_analytics: 11.2.1
+  cloud_firestore: 5.2.0
+  firebase_auth: 5.1.3
   google_sign_in: ^6.2.1
   flutter_signin_button: ^2.0.0
   geolocator: ^12.0.0
   image_picker: ^1.0.7
   image_picker_android: ^0.8.9+3
   image_picker_ios: ^0.8.9+3
-  firebase_storage: ^12.1.2
+  firebase_storage: 12.1.2
   path: ^1.9.0
   archive:
   easy_pdf_viewer: ^1.0.8
-  firebase_messaging: ^15.0.4
+  firebase_messaging: 15.0.4
   flutter_local_notifications: ^17.0.0
   bubble_bottom_bar: ^2.0.0
   pull_to_refresh: ^2.0.0
@@ -92,10 +92,10 @@ dependencies:
   add_2_calendar: ^3.0.1
   flutter_stripe: ^11.3.0
   liquid_pull_to_refresh: ^3.0.0
-  onesignal_flutter: ^5.2.8
   fl_chart: ^0.69.2
   syncfusion_flutter_charts: ^26.2.14
   tflite_flutter: ^0.11.0
+  cloud_functions: 5.0.0
 
 dev_dependencies:
   flutter_test:

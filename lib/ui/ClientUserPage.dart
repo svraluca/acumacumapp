@@ -1,16 +1,18 @@
+import 'package:acumacum/notifications_setup/push_notification_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../model/User.dart';  // Update this import to match your existing User model
+import '../model/User.dart'; // Update this import to match your existing User model
 
 import '../ui/accountInfo.dart'; // Update this with the correct path
 import '../ui/ChangeEmail.dart';
 import '../ui/ChangePassword.dart';
-import '../ui/LoginPage.dart';  // Adjust the import path to match your project structure
+import '../ui/LoginPage.dart'; // Adjust the import path to match your project structure
 
 class ClientUserPage extends StatefulWidget {
   final String userId;
-  const ClientUserPage({Key? key, required this.userId}) : super(key: key);
+  const ClientUserPage({super.key, required this.userId});
 
   @override
   State<ClientUserPage> createState() => _ClientUserPageState();
@@ -30,11 +32,8 @@ class _ClientUserPageState extends State<ClientUserPage> {
   Future<void> loadUserData() async {
     setState(() => isLoading = true);
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(widget.userId)
-          .get();
-          
+      final doc = await FirebaseFirestore.instance.collection('Users').doc(widget.userId).get();
+
       if (doc.exists) {
         userData = UserModel(
           uid: widget.userId,
@@ -64,12 +63,12 @@ class _ClientUserPageState extends State<ClientUserPage> {
 
     // Get user's initials
     String getInitials() {
-      if (userData?.name == null || userData!.name!.isEmpty) return '';
-      List<String> nameParts = userData!.name!.split(' ');
+      if (userData?.name == null || userData!.name.isEmpty) return '';
+      List<String> nameParts = userData!.name.split(' ');
       if (nameParts.length > 1) {
         return '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase();
       }
-      return userData!.name![0].toUpperCase();
+      return userData!.name[0].toUpperCase();
     }
 
     return Scaffold(
@@ -127,8 +126,8 @@ class _ClientUserPageState extends State<ClientUserPage> {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Row(
-                              children: const [
+                            const Row(
+                              children: [
                                 Icon(
                                   Icons.location_on,
                                   size: 16,
@@ -154,10 +153,10 @@ class _ClientUserPageState extends State<ClientUserPage> {
               ],
             ),
           ),
-          
+
           // New rows for account options
           const SizedBox(height: 30),
-          
+
           // Account Info Row with navigation
           ListTile(
             leading: const Icon(Icons.person_outline, color: Colors.grey),
@@ -177,14 +176,14 @@ class _ClientUserPageState extends State<ClientUserPage> {
                   builder: (context) => AccountInfo(userId: widget.userId),
                 ),
               );
-              
+
               // Refresh user data if name was updated
               if (result == true) {
-                loadUserData();  // Reload user data
+                loadUserData(); // Reload user data
               }
             },
           ),
-          
+
           // Change Email Row with navigation
           ListTile(
             leading: const Icon(Icons.email_outlined, color: Colors.grey),
@@ -206,7 +205,7 @@ class _ClientUserPageState extends State<ClientUserPage> {
               );
             },
           ),
-          
+
           // Change Password Row
           ListTile(
             leading: const Icon(Icons.lock_outline, color: Colors.grey),
@@ -228,7 +227,7 @@ class _ClientUserPageState extends State<ClientUserPage> {
               );
             },
           ),
-          
+
           // Notifications Row
           ListTile(
             leading: const Icon(Icons.notifications_outlined, color: Colors.grey),
@@ -264,6 +263,10 @@ class _ClientUserPageState extends State<ClientUserPage> {
             ),
             onTap: () {
               // Replace named route with direct navigation
+              FirebaseAuth.instance.signOut();
+              PushNotificationService messagingService = PushNotificationService();
+              messagingService.deleteFCMToken();
+
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (context) => const LoginPage()),
                 (Route<dynamic> route) => false,

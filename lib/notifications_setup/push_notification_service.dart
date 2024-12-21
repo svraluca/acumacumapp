@@ -1,9 +1,14 @@
+// import 'dart:developer';
+
+// import 'package:acumacum/model/notification_data.dart';
 import 'package:acumacum/notifications_setup/logging/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// import 'package:timezone/timezone.dart' as tz;
+// import 'package:timezone/data/latest.dart' as tzd;
 
 final FlutterLocalNotificationsPlugin _localNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
@@ -40,6 +45,7 @@ class PushNotificationService {
       android: initializationSettingsAndroid,
       iOS: initializationSettingsIOS,
     );
+    // tzd.initializeTimeZones();
     await _localNotificationsPlugin.initialize(initializationSettings);
   }
 
@@ -47,6 +53,7 @@ class PushNotificationService {
     final bool permission = await _getNotificationPermission();
     if (permission) {
       _logger.i(await _messaging.getToken());
+
       _appIsMinimizedNotTerminated();
       _appIsOpened();
       _backgroundNotificationHandler();
@@ -73,25 +80,31 @@ class PushNotificationService {
   }
 
   void _appIsMinimizedNotTerminated() async {
-    RemoteMessage? remoteMessage = await _messaging.getInitialMessage();
-    if (remoteMessage == null) {
-      FirebaseMessaging.onMessageOpenedApp.listen((message) {
-        _logger.i('notification is received when app is opened and not terminated');
-        _logger.i(message.notification?.title);
-        _logger.i(message.notification?.body);
-      });
-    }
-    if (remoteMessage != null) {
-      _showLocalNotification(remoteMessage);
-    }
+    // RemoteMessage? remoteMessage = await _messaging.getInitialMessage();
+    // if (remoteMessage != null) {
+    //   _logger.i('Notification received when app was terminated.');
+    //   _logger.wtf(remoteMessage.toMap());
+    //   // final NotificationData notificationData = NotificationData.fromJson(remoteMessage.data);
+    //   // _showLocalNotification(notificationData);
+    //   return; // Avoid listening to `onMessageOpenedApp` if a notification is already handled.
+    // }
+
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      _logger.i('Notification received when app is opened but minimized.');
+      _logger.i(message.toMap());
+      // final NotificationData notificationData = NotificationData.fromJson(message.data);
+      // _showLocalNotification(notificationData);
+    });
   }
 
   Future<void> _appIsOpened() async {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       _logger.i('notification is received when app is opened');
+      // final NotificationData notificationData = NotificationData.fromJson(message.data);
       _logger.i(message.notification?.title);
       _logger.i(message.notification?.body);
-      _showLocalNotification(message);
+      _logger.i(message.toMap());
+      //_showLocalNotification(message);
     });
   }
 
@@ -103,12 +116,30 @@ class PushNotificationService {
     return await _messaging.getAPNSToken();
   }
 
-  void onTokenRefresh() {
+  Future<void> deleteFCMToken() async {
+    try {
+      _logger.i('Deleting FCM token...');
+      await _messaging.deleteToken();
+      _logger.i('FCM token deleted successfully.');
+    } catch (e) {
+      _logger.e('Error deleting FCM token: $e');
+    }
+  }
+
+  void onTokenRefresh() async {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId != null) {
+      _logger.i('Current user id: $currentUserId');
+      await FirebaseFirestore.instance.collection('Users').doc(currentUserId).update({
+        'fcmToken': await getAndroidToken(),
+      });
+      _logger.i('FCM Token updated: ${await getAndroidToken()}');
+    }
     _messaging.onTokenRefresh.listen((fcmToken) async {
       _logger.i('Token refreshed');
       _logger.i(fcmToken);
       final token = fcmToken;
-      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
       if (currentUserId != null) {
         await FirebaseFirestore.instance.collection('Users').doc(currentUserId).update({
           'fcmToken': token,
@@ -126,41 +157,41 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   final logger = getLogger('PuchNotificationServiceBackground');
   logger.i("Handling a background message: ${message.messageId}");
-  message.data.forEach((key, value) {
-    logger.i('$key: $value');
-  });
-  _showLocalNotification(message);
+  // NotificationData notificationData = NotificationData.fromJson(message.data);
+  // _showLocalNotification(notificationData);
 }
 
-Future<void> _showLocalNotification(RemoteMessage message) async {
-  if (message.data['id'].toString().isEmpty || message.data['sender'].toString().isEmpty) {
-    return;
-  }
-  const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
-    'holedo_channel_id',
-    'hole_do_channel_name',
-    channelDescription: 'holedo_channel_description',
-    importance: Importance.max,
-    priority: Priority.high,
-    showWhen: false,
-  );
-  // iOS specific notification details (DarwinNotificationDetails for iOS/macOS)
-  const DarwinNotificationDetails iOSPlatformChannelSpecifics = DarwinNotificationDetails(
-    presentAlert: true, // Show alert when app is in foreground
-    presentBadge: true, // Show app icon badge number
-    presentSound: true, // Play sound
-  );
+// Future<void> _showLocalNotification(RemoteMessage? message) async {
+//   if (message == null) {
+//     getLogger('PushNotificationService').e('Message is null');
+//     return;
+//   }
+//   // iOS specific notification details (DarwinNotificationDetails for iOS/macOS)
+//   const DarwinNotificationDetails iOSPlatformChannelSpecifics = DarwinNotificationDetails(
+//     presentAlert: true, // Show alert when app is in foreground
+//     presentBadge: true, // Show app icon badge number
+//     presentSound: true, // Play sound
+//   );
 
-  const NotificationDetails platformChannelSpecifics = NotificationDetails(
-    android: androidPlatformChannelSpecifics,
-    iOS: iOSPlatformChannelSpecifics,
-  );
+//   const NotificationDetails platformChannelSpecifics = NotificationDetails(
+//     iOS: iOSPlatformChannelSpecifics,
+//   );
 
-  await _localNotificationsPlugin.show(
-    message.data['id'] ?? 0,
-    message.data['sender_display_name'] ?? '',
-    message.data['content_body'] ?? '',
-    platformChannelSpecifics,
-    // payload: message.data['your_payload_key'], // Use your payload key if needed
-  );
-}
+//   _localNotificationsPlugin
+//       .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>(
+//           // This is required to show notification on iOS
+//           )
+//       ?.requestPermissions(
+//         alert: true,
+//         badge: true,
+//         sound: true,
+//       );
+
+//   await _localNotificationsPlugin.show(
+//     0,
+//     message.notification?.title,
+//     message.notification?.body,
+//     platformChannelSpecifics,
+//     payload: message.data.toString(),
+//   );
+// }
