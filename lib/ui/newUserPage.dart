@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:acumacum/ui/SubscriptionPlanPost.dart';
 import 'package:acumacum/ui/addService.dart';
 import 'package:acumacum/ui/addProduct.dart';
+import 'dart:convert';
 
 // Define a constant for the dark blue color
 const Color darkBlueColor =
@@ -895,19 +896,128 @@ class NewUserProfile extends State<NewUserPage>
     return 'Working Hours: $openTime - $closeTime\nWorking Days: $workDays';
   }
 
-  Future<void> _changeCoverPhoto() async {
+  Future<bool> _checkImageContent(File imageFile) async {
+    try {
+      print('Starting image content check...'); // Debug log
+
+      List<int> imageBytes = await imageFile.readAsBytes();
+      String base64Image = base64Encode(imageBytes);
+
+      final body = {
+        'requests': [
+          {
+            'image': {
+              'content': base64Image,
+            },
+            'features': [
+              {
+                'type': 'SAFE_SEARCH_DETECTION',
+                'maxResults': 1
+              }
+            ],
+          }
+        ]
+      };
+
+      print('Sending request to Vision API...'); // Debug log
+
+      final response = await http.post(
+        Uri.parse('https://vision.googleapis.com/v1/images:annotate?key=AIzaSyCVhYFD2mA9XGi0iizndFzgRs9kEGGvBZc'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      print('Response status code: ${response.statusCode}'); // Debug log
+      print('Response body: ${response.body}'); // Debug log
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final safeSearch = data['responses'][0]['safeSearchAnnotation'];
+
+        // Log all safety ratings
+        print('Safe Search Results:');
+        print('Adult: ${safeSearch['adult']}');
+        print('Spoof: ${safeSearch['spoof']}');
+        print('Medical: ${safeSearch['medical']}');
+        print('Violence: ${safeSearch['violence']}');
+        print('Racy: ${safeSearch['racy']}');
+
+        // Only check for adult and violent content
+        final adultRestrictedLevels = ['VERY_LIKELY'];  // Only reject explicit adult content
+        final violenceRestrictedLevels = ['LIKELY', 'VERY_LIKELY'];
+
+        // Check adult content
+        if (adultRestrictedLevels.contains(safeSearch['adult'])) {
+          print('Image rejected due to adult content');
+          return false;
+        }
+
+        // Check violence content
+        if (violenceRestrictedLevels.contains(safeSearch['violence'])) {
+          print('Image rejected due to violent content');
+          return false;
+        }
+
+        print('Image passed content check');
+        return true;
+      }
+      
+      print('API request failed with status: ${response.statusCode}');
+      return false;
+    } catch (e, stackTrace) {
+      print('Error checking image content: $e');
+      print('Stack trace: $stackTrace');
+      return false;
+    }
+  }
+
+  void _changeCoverPhoto() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
     if (image != null) {
       File imageFile = File(image.path);
-      String fileName =
-          'cover_photos/${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        },
+      );
 
       try {
+        // Check image content
+        bool isAppropriate = await _checkImageContent(imageFile);
+        
+        // Dismiss loading indicator
+        Navigator.pop(context);
+
+        if (!isAppropriate) {
+          // Show detailed error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'This image cannot be used as it may contain inappropriate content '
+                '(such as revealing clothing, violence, or sensitive material). '
+                'Please choose a different image.',
+              ),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+          return;
+        }
+
+        String fileName = 'cover_photos/${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
         // Upload to Firebase Storage
-        TaskSnapshot uploadTask =
-            await FirebaseStorage.instance.ref(fileName).putFile(imageFile);
+        TaskSnapshot uploadTask = await FirebaseStorage.instance
+            .ref(fileName)
+            .putFile(imageFile);
 
         String downloadUrl = await uploadTask.ref.getDownloadURL();
 
@@ -921,15 +1031,37 @@ class NewUserProfile extends State<NewUserPage>
         setState(() {
           coverPhotoUrl = downloadUrl;
         });
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cover photo updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
       } catch (e) {
-        print("Error uploading cover photo: $e");
-        // Show an error message to the user
+        // Ensure loading indicator is dismissed in case of error
+        if (context.mounted) {
+          Navigator.pop(context);
+        }
+        
+        print("Error in cover photo upload process: $e");
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error updating cover photo: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       }
     }
   }
 
   Future<void> fetchScheduleData() async {
     try {
+      // Try to get data from BusinessAccount/detail first
       DocumentSnapshot scheduleDoc = await FirebaseFirestore.instance
           .collection('Users')
           .doc(userId)
@@ -937,10 +1069,26 @@ class NewUserProfile extends State<NewUserPage>
           .doc('detail')
           .get();
 
+      // If no data in BusinessAccount/detail, try main Users document
+      if (!scheduleDoc.exists) {
+        scheduleDoc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(userId)
+            .get();
+      }
+
       if (scheduleDoc.exists) {
         setState(() {
           scheduleData = scheduleDoc.data() as Map<String, dynamic>?;
+          // Update controllers with the latest data
+          openTimeController.text = scheduleData?['timeOpen'] ?? 
+                                  scheduleData?['openTime'] ?? '';
+          closeTimeController.text = scheduleData?['timeClosed'] ?? 
+                                       scheduleData?['closeTime'] ?? '';
+          workingDaysController.text = scheduleData?['workingDays'] ?? 
+                                       scheduleData?['workDays'] ?? '';
         });
+        print('Fetched schedule data: $scheduleData'); // Debug print
       } else {
         print('No schedule data found');
       }
@@ -995,21 +1143,21 @@ class NewUserProfile extends State<NewUserPage>
   }
 
   void _showSocialBottomSheet(BuildContext context) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 16,
-            right: 16,
-            top: 16,
-          ),
+      builder: (BuildContext context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
+        ),
+        child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1050,40 +1198,26 @@ class NewUserProfile extends State<NewUserPage>
                 ),
               ),
               const SizedBox(height: 24),
-              Center(
+              SizedBox(
+                width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A237E),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 24,
-                    ),
+                    backgroundColor: darkBlueColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    elevation: 0,
                   ),
                   onPressed: () async {
-                      try {
-                        // Show loading indicator
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (BuildContext context) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        },
-                      );
-
-                      // Validate and clean URLs
+                    try {
                       final socialData = {
                         'instagram': _cleanUrl(instagramController.text.trim()),
                         'tiktok': _cleanUrl(tiktokController.text.trim()),
                         'facebook': _cleanUrl(facebookController.text.trim()),
+                        'lastUpdated': FieldValue.serverTimestamp(),
                       };
 
-                      // Save to Firestore
                       await FirebaseFirestore.instance
                           .collection('Users')
                           .doc(userId)
@@ -1091,43 +1225,31 @@ class NewUserProfile extends State<NewUserPage>
                           .doc('detail')
                           .set(socialData, SetOptions(merge: true));
 
-                      // Close loading indicator
-                      Navigator.pop(context);
-                      // Close bottom sheet
-                      Navigator.pop(context);
-
-                      // Show success message
-                      if (mounted) {
+                      if (context.mounted) {
+                        Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Social media links updated successfully'),
                             backgroundColor: Colors.green,
-                            duration: Duration(seconds: 2),
                           ),
                         );
                       }
                     } catch (e) {
-                      // Close loading indicator if there's an error
-                      Navigator.pop(context);
-                      
-                      print('Error saving social media links: $e');
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Error updating social media links: ${e.toString()}'),
                             backgroundColor: Colors.red,
-                            duration: const Duration(seconds: 3),
                           ),
                         );
                       }
                     }
                   },
                   child: const Text(
-                    'Save',
+                    'Save Changes',
                     style: TextStyle(
-                      color: Colors.white,
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -1135,18 +1257,23 @@ class NewUserProfile extends State<NewUserPage>
               const SizedBox(height: 16),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  // Add this helper method to clean URLs
+  // Helper method to clean URLs (make sure this is defined)
   String _cleanUrl(String url) {
     if (url.isEmpty) return '';
     
     // Remove trailing slashes
-    if (url.endsWith('/')) {
+    while (url.endsWith('/')) {
       url = url.substring(0, url.length - 1);
+    }
+    
+    // Ensure URL starts with http:// or https://
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://$url';
     }
     
     return url;
@@ -1470,10 +1597,7 @@ class ServicesTab extends StatelessWidget {
                                       ),
                                       child: const Text(
                                         'Delete',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                        style: TextStyle(fontSize: 12),
                                       ),
                                     ),
                                   ],
@@ -2072,7 +2196,7 @@ class ProductsTab extends StatelessWidget {
           child: const Icon(Icons.error),
         );
       }
-                      } catch (e) {
+    } catch (e) {
       print('Error loading image: $e');
       return Container(
         height: 100,
