@@ -97,6 +97,7 @@ dependencies:
   fl_chart: ^0.69.2
   syncfusion_flutter_charts: ^26.2.14
   tflite_flutter: ^0.11.0
+  google_vision: ^2.0.0+4
 
   
 
