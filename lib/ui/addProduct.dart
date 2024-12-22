@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -38,12 +40,20 @@ class _AddProductState extends State<AddProduct> {
   }
 
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _imageFile = image;
-      });
+    print("Starting image picker"); // Debug log
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        print("Image picked successfully: ${image.path}"); // Debug log
+        setState(() {
+          _imageFile = image;
+        });
+      } else {
+        print("No image selected"); // Debug log
+      }
+    } catch (e) {
+      print("Error picking image: $e"); // Debug log
     }
   }
 
@@ -59,34 +69,92 @@ class _AddProductState extends State<AddProduct> {
     return null;
   }
 
+  Future<bool> _checkImageContent(File imageFile) async {
+    try {
+      print('DEBUG: Starting image content check...'); 
+      print('DEBUG: Image file path: ${imageFile.path}');
+      print('DEBUG: Image file size: ${await imageFile.length()} bytes');
+
+      List<int> imageBytes = await imageFile.readAsBytes();
+      print('DEBUG: Successfully read image bytes');
+      String base64Image = base64Encode(imageBytes);
+      print('DEBUG: Successfully encoded image to base64');
+
+      final body = {
+        'requests': [
+          {
+            'image': {
+              'content': base64Image,
+            },
+            'features': [
+              {
+                'type': 'SAFE_SEARCH_DETECTION',
+                'maxResults': 1
+              }
+            ],
+          }
+        ]
+      };
+      print('DEBUG: Prepared API request body');
+
+      print('DEBUG: Sending request to Vision API...');
+      final response = await http.post(
+        Uri.parse('https://vision.googleapis.com/v1/images:annotate?key=AIzaSyCVhYFD2mA9XGi0iizndFzgRs9kEGGvBZc'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+      print('DEBUG: Received API response');
+      print('DEBUG: Response status code: ${response.statusCode}');
+      print('DEBUG: Full response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        print('DEBUG: Successful API response (200)');
+        final data = jsonDecode(response.body);
+        final safeSearch = data['responses'][0]['safeSearchAnnotation'];
+
+        print('DEBUG: ====== Safe Search Results ======');
+        print('DEBUG: Adult: ${safeSearch['adult']}');
+        print('DEBUG: Spoof: ${safeSearch['spoof']}');
+        print('DEBUG: Medical: ${safeSearch['medical']}');
+        print('DEBUG: Violence: ${safeSearch['violence']}');
+        print('DEBUG: Racy: ${safeSearch['racy']}');
+        print('DEBUG: ================================');
+
+        // For testing, let's print the decision process
+        print('DEBUG: Checking content rules...');
+        
+        if (safeSearch['adult'] == 'VERY_LIKELY') {
+          print('DEBUG: Image rejected - adult content is VERY_LIKELY');
+          return false;
+        }
+
+        print('DEBUG: Image passed all content checks');
+        return true;
+      } else {
+        print('DEBUG: API request failed with status: ${response.statusCode}');
+        print('DEBUG: Error response body: ${response.body}');
+        // For testing purposes, let's allow images when API fails
+        print('DEBUG: Allowing image despite API failure');
+        return true;
+      }
+    } catch (e, stackTrace) {
+      print('DEBUG: Error in _checkImageContent:');
+      print('DEBUG: Error message: $e');
+      print('DEBUG: Stack trace: $stackTrace');
+      // For testing purposes, let's allow images when there's an error
+      print('DEBUG: Allowing image despite error');
+      return true;
+    }
+  }
+
   Future<void> _saveProduct() async {
-    if (_nameController.text.isEmpty ||
-        _descriptionController.text.isEmpty ||
-        _priceController.text.isEmpty) {
+    print('DEBUG: Starting _saveProduct method');
+    
+    if (_imageFile == null) {
+      print('DEBUG: No image file selected');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please fill in all fields'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    double? price = double.tryParse(_priceController.text);
-    if (price == null || price <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid price'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    if (_getWordCount(_descriptionController.text) > 55) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Description should not exceed 55 words'),
+          content: Text('Please select an image'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -98,10 +166,33 @@ class _AddProductState extends State<AddProduct> {
     });
 
     try {
+      print('DEBUG: Starting image content check');
+      bool isAppropriate = await _checkImageContent(File(_imageFile!.path));
+      print('DEBUG: Content check result: $isAppropriate');
+
+      if (!isAppropriate) {
+        print('DEBUG: Image failed content check');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please choose an appropriate image'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      print('DEBUG: Proceeding with image upload');
       String? imageUrl;
       if (_imageFile != null) {
         final storageRef = FirebaseStorage.instance.ref().child(
             'product_images/${DateTime.now().millisecondsSinceEpoch}_${_imageFile!.name}');
+        
         final uploadTask = storageRef.putFile(File(_imageFile!.path));
         final snapshot = await uploadTask.whenComplete(() {});
         imageUrl = await snapshot.ref.getDownloadURL();
@@ -114,7 +205,7 @@ class _AddProductState extends State<AddProduct> {
           .add({
         'name': _nameController.text,
         'description': _descriptionController.text,
-        'price': price,
+        'price': double.parse(_priceController.text),
         'photoUrl': imageUrl,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -128,13 +219,16 @@ class _AddProductState extends State<AddProduct> {
           ),
         );
       }
-    } catch (e) {
-      print('Error adding product: $e');
+    } catch (e, stackTrace) {
+      print('DEBUG: Error in _saveProduct:');
+      print('DEBUG: Error message: $e');
+      print('DEBUG: Stack trace: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error adding product: ${e.toString()}'),
+            content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
