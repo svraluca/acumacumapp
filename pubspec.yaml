@@ -97,6 +97,7 @@ dependencies:
   tflite_flutter: ^0.11.0
   cloud_functions: 5.0.0
   rxdart: ^0.27.7
+  onesignal_flutter: ^5.2.9
 
 dev_dependencies:
   flutter_test:
