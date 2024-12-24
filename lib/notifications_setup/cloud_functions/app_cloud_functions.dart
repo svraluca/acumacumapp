@@ -44,6 +44,33 @@ class AppCloudFunctionService {
     return false;
   }
 
+  Future<bool> updateUserData(Map<String, dynamic> userData) async {
+    try {
+      final sanitizedUserData = _sanitizeMessageData(userData);
+      // Call the Cloud Function
+      final HttpsCallable callable = _functions.httpsCallable('updateUserData');
+      final result = await callable.call(sanitizedUserData);
+
+      // Process the result if needed (the Cloud Function doesn't return anything useful currently)
+      _logger.i('User data updated successfully: ${result.data}');
+      if (result.data['success'] == true) {
+        return true;
+      } else {
+        _logger.e('Error updating user data: ${result.data['error']}');
+        return false;
+      }
+    } on FirebaseFunctionsException catch (e) {
+      // Handle errors from the Cloud Function
+      _logger.e('Error updating user data: ${e.message}');
+      _logger.e('Error details: ${e.details}');
+      // Show a user-friendly error message or log the error
+    } catch (e) {
+      // Handle other errors
+      _logger.e('Unexpected error: $e');
+    }
+    return false;
+  }
+
   Map<String, dynamic> _sanitizeMessageData(Map<String, dynamic> messageData) {
     // Ensure all values in the map are JSON-serializable
     return messageData.map((key, value) {

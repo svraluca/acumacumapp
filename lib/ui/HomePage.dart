@@ -202,17 +202,6 @@ class HomepageState extends State<Homepage> with WidgetsBindingObserver {
         return;
       }
     });
-// TODO: ASK WHAT THIS DOES
-    // FirebaseMessaging.onMessage.listen((message) {
-    //   FirebaseFirestore.instance.collection('Users').doc(userId).update({'newChat': true});
-    //   final snackBar = SnackBar(
-    //     content: Text(message.data['notification']['body']),
-    //   );
-    //   ScaffoldMessenger.of(context).showSnackBar(snackBar);
-    //   print(message);
-    //   print(message.data['data']['serviceProviderId']);
-    //   return;
-    // });
 
     getServiceProviderProfile();
     WidgetsBinding.instance.addObserver(this);

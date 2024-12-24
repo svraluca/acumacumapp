@@ -21,16 +21,14 @@ class UserProfiles extends StatefulWidget {
   final String? categoryName;
   final ScrollController? scrollController;
 
-  const UserProfiles(this.serviceProviderId, this.userName, this.avatarUrl,
-      this.address, this.categoryName,
+  const UserProfiles(this.serviceProviderId, this.userName, this.avatarUrl, this.address, this.categoryName,
       {this.scrollController, super.key});
 
   @override
   State<UserProfiles> createState() => UserProfilesState();
 }
 
-class UserProfilesState extends State<UserProfiles>
-    with TickerProviderStateMixin {
+class UserProfilesState extends State<UserProfiles> with TickerProviderStateMixin {
   bool _isFavorite = false;
   late String facebookUrl;
   late String instagramUrl;
@@ -54,16 +52,10 @@ class UserProfilesState extends State<UserProfiles>
     currentUserId = FirebaseAuth.instance.currentUser!.uid;
     myId = FirebaseAuth.instance.currentUser!.uid;
     _tabController = TabController(length: 3, vsync: this);
-    FirebaseFirestore.instance
-        .collection("Users")
-        .doc(myId)
-        .collection("favorites")
-        .get()
-        .then(
+    FirebaseFirestore.instance.collection("Users").doc(myId).collection("favorites").get().then(
       (value) {
         for (DocumentSnapshot doc in value.docs) {
-          if ((doc.data() as Map<String, dynamic>)["id"] ==
-              widget.serviceProviderId) {
+          if ((doc.data() as Map<String, dynamic>)["id"] == widget.serviceProviderId) {
             setState(() {
               _isFavorite = true;
             });
@@ -113,12 +105,7 @@ class UserProfilesState extends State<UserProfiles>
                 //     140,
                 decoration: BoxDecoration(
                     color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 2,
-                          spreadRadius: 1)
-                    ],
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 2, spreadRadius: 1)],
                     borderRadius: BorderRadius.circular(8)),
                 child: Column(
                   children: [
@@ -129,10 +116,7 @@ class UserProfilesState extends State<UserProfiles>
                         ),
                         const SizedBox(width: 4),
                         Text(name,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12.0,
-                                color: Colors.black)),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.0, color: Colors.black)),
                         const SizedBox(width: 45),
                         _buildRatingStars(ratings)
                       ],
@@ -159,8 +143,7 @@ class UserProfilesState extends State<UserProfiles>
                       child: Text(
                         review,
                         textScaleFactor: 1.1,
-                        style: const TextStyle(
-                            fontSize: 12.0, color: Colors.black),
+                        style: const TextStyle(fontSize: 12.0, color: Colors.black),
                       ),
                     ),
                     TextButton(
@@ -194,8 +177,7 @@ class UserProfilesState extends State<UserProfiles>
     String reviewerId = data['reviewerId'] ?? '';
 
     return FutureBuilder<DocumentSnapshot>(
-      future:
-          FirebaseFirestore.instance.collection('Users').doc(reviewerId).get(),
+      future: FirebaseFirestore.instance.collection('Users').doc(reviewerId).get(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const CircularProgressIndicator();
@@ -226,8 +208,7 @@ class UserProfilesState extends State<UserProfiles>
                           ),
                           Text(
                             data['timestamp']?.toDate().toString() ?? 'No date',
-                            style: const TextStyle(
-                                color: Colors.grey, fontSize: 12),
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
                           ),
                         ],
                       ),
@@ -286,22 +267,17 @@ class UserProfilesState extends State<UserProfiles>
                       .get();
 
                   if (reviewDoc.exists) {
-                    Map<String, dynamic> reviewData =
-                        reviewDoc.data() as Map<String, dynamic>;
-                    String currentUserId =
-                        FirebaseAuth.instance.currentUser?.uid ?? '';
+                    Map<String, dynamic> reviewData = reviewDoc.data() as Map<String, dynamic>;
+                    String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
                     if (currentUserId == reviewData['reviewerId']) {
                       await reviewDoc.reference.delete();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text("Review deleted successfully")),
+                        const SnackBar(content: Text("Review deleted successfully")),
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text(
-                                "You don't have permission to delete this review")),
+                        const SnackBar(content: Text("You don't have permission to delete this review")),
                       );
                     }
                   } else {
@@ -324,14 +300,10 @@ class UserProfilesState extends State<UserProfiles>
 
   Widget _buildServiceItem(QueryDocumentSnapshot service, bool isFirstItem) {
     String serviceId = service.id;
-    String serviceName =
-        (service.data() as Map<String, dynamic>)['name'] ?? 'Unnamed Service';
+    String serviceName = (service.data() as Map<String, dynamic>)['name'] ?? 'Unnamed Service';
     String servicePrice = (service.data() as Map<String, dynamic>)['price']?.toString().split('.')[0] ?? 'N/A';
-    String serviceDescription =
-        (service.data() as Map<String, dynamic>)['description'] ??
-            'No description available';
-    String photoUrl =
-        (service.data() as Map<String, dynamic>)['photoUrl'] ?? '';
+    String serviceDescription = (service.data() as Map<String, dynamic>)['description'] ?? 'No description available';
+    String photoUrl = (service.data() as Map<String, dynamic>)['photoUrl'] ?? '';
 
     return Container(
       color: Colors.white,
@@ -367,13 +339,11 @@ class UserProfilesState extends State<UserProfiles>
               children: [
                 Text(
                   serviceName,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 GestureDetector(
-                  onTap: () => _showDescriptionDialog(
-                      context, serviceName, serviceDescription),
+                  onTap: () => _showDescriptionDialog(context, serviceName, serviceDescription),
                   child: Text(
                     serviceDescription,
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
@@ -418,9 +388,7 @@ class UserProfilesState extends State<UserProfiles>
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content:
-                              Text('Booking hanya tersedia untuk client.')),
+                      const SnackBar(content: Text('Booking hanya tersedia untuk client.')),
                     );
                   }
                 },
@@ -430,8 +398,7 @@ class UserProfilesState extends State<UserProfiles>
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 ),
                 child: const Text(
                   'BOOK',
@@ -447,11 +414,7 @@ class UserProfilesState extends State<UserProfiles>
 
   // Function to display booking pop-up
   void _showCupertinoBookingPopup(
-      BuildContext context,
-      String serviceProviderId,
-      String serviceId,
-      String serviceName,
-      String servicePrice) {
+      BuildContext context, String serviceProviderId, String serviceId, String serviceName, String servicePrice) {
     print("Service Name di Cupertino Booking Popup: $serviceName"); // Debug
     print("serviceId: $serviceId, serviceName: $serviceName");
     DateTime selectedDateTime = DateTime.now();
@@ -493,8 +456,7 @@ class UserProfilesState extends State<UserProfiles>
                         userName: widget.userName,
                         avatarUrl: widget.avatarUrl ?? '',
                         price: servicePrice,
-                        serviceName:
-                            serviceName, // Pastikan serviceName diteruskan
+                        serviceName: serviceName, // Pastikan serviceName diteruskan
                         serviceId: serviceId, // Pastikan serviceId diteruskan
                         initialBookingDateTime: selectedDateTime.toString(),
                         directBooking: true,
@@ -511,14 +473,10 @@ class UserProfilesState extends State<UserProfiles>
   }
 
   Widget _buildProductItem(QueryDocumentSnapshot product, bool isFirstItem) {
-    String productName =
-        (product.data() as Map<String, dynamic>)['name'] ?? 'Unnamed Product';
+    String productName = (product.data() as Map<String, dynamic>)['name'] ?? 'Unnamed Product';
     String productPrice = (product.data() as Map<String, dynamic>)['price']?.toString().split('.')[0] ?? 'N/A';
-    String productDescription =
-        (product.data() as Map<String, dynamic>)['description'] ??
-            'No description available';
-    String imageUrl =
-        (product.data() as Map<String, dynamic>)['photoUrl'] ?? '';
+    String productDescription = (product.data() as Map<String, dynamic>)['description'] ?? 'No description available';
+    String imageUrl = (product.data() as Map<String, dynamic>)['photoUrl'] ?? '';
 
     return Container(
       color: Colors.white,
@@ -560,13 +518,11 @@ class UserProfilesState extends State<UserProfiles>
               children: [
                 Text(
                   productName,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 GestureDetector(
-                  onTap: () => _showDescriptionDialog(
-                      context, productName, productDescription),
+                  onTap: () => _showDescriptionDialog(context, productName, productDescription),
                   child: Text(
                     productDescription,
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
@@ -625,8 +581,7 @@ class UserProfilesState extends State<UserProfiles>
     );
   }
 
-  void _showDescriptionDialog(
-      BuildContext context, String serviceName, String description) {
+  void _showDescriptionDialog(BuildContext context, String serviceName, String description) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -665,8 +620,7 @@ class UserProfilesState extends State<UserProfiles>
                 decoration: BoxDecoration(
                   image: DecorationImage(
                     image: NetworkImage(
-                      (widget.avatarUrl != null &&
-                              widget.avatarUrl != 'default')
+                      (widget.avatarUrl != null && widget.avatarUrl != 'default')
                           ? widget.avatarUrl!
                           : "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png",
                     ),
@@ -725,15 +679,13 @@ class UserProfilesState extends State<UserProfiles>
                     ),
                     onPressed: () async {
                       if (_isFavorite) {
-                        QuerySnapshot snapshot = await FirebaseFirestore
-                            .instance
+                        QuerySnapshot snapshot = await FirebaseFirestore.instance
                             .collection("Users")
                             .doc(myId)
                             .collection("favorites")
                             .get();
                         for (DocumentSnapshot snpsht in snapshot.docs) {
-                          if ((snpsht.data() as Map<String, dynamic>)["id"] ==
-                              widget.serviceProviderId) {
+                          if ((snpsht.data() as Map<String, dynamic>)["id"] == widget.serviceProviderId) {
                             snpsht.reference.delete();
                           }
                         }
@@ -775,8 +727,7 @@ class UserProfilesState extends State<UserProfiles>
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     elevation: 0,
                   ),
                   child: const Row(
@@ -796,30 +747,24 @@ class UserProfilesState extends State<UserProfiles>
           ),
           // Rest of the content
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
             child: Column(
               children: [
                 // Social media icons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildSocialButton('assets/images/tiktok.png',
-                        () => _launchUrl(tikTokUrl, context)),
-                    _buildSocialButton('assets/images/instagram.png',
-                        () => _launchUrl(instagramUrl, context)),
-                    _buildSocialButton('assets/images/facebook.png',
-                        () => _launchUrl(facebookUrl, context)),
-                    _buildSocialButton(
-                        'assets/images/googlemap.png', () => _openMap(context)),
+                    _buildSocialButton('assets/images/tiktok.png', () => _launchUrl(tikTokUrl, context)),
+                    _buildSocialButton('assets/images/instagram.png', () => _launchUrl(instagramUrl, context)),
+                    _buildSocialButton('assets/images/facebook.png', () => _launchUrl(facebookUrl, context)),
+                    _buildSocialButton('assets/images/googlemap.png', () => _openMap(context)),
                     _buildShareButton(),
                   ],
                 ),
                 const SizedBox(height: 16),
                 // Username, address, and schedule
                 Container(
-                  padding: const EdgeInsets.fromLTRB(
-                      12, 25, 12, 25), // Reduced right padding
+                  padding: const EdgeInsets.fromLTRB(12, 25, 12, 25), // Reduced right padding
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
@@ -839,8 +784,7 @@ class UserProfilesState extends State<UserProfiles>
                           ),
                           if (averageRating > 0)
                             Row(
-                              mainAxisSize: MainAxisSize
-                                  .min, // Added to minimize row width
+                              mainAxisSize: MainAxisSize.min, // Added to minimize row width
                               children: [
                                 _buildRatingStars(averageRating),
                                 const SizedBox(width: 2), // Reduced from 4 to 2
@@ -858,9 +802,7 @@ class UserProfilesState extends State<UserProfiles>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        widget.address == "default"
-                            ? "No Address yet"
-                            : widget.address,
+                        widget.address == "default" ? "No Address yet" : widget.address,
                         style: const TextStyle(
                           color: Colors.black54,
                           fontSize: 16,
@@ -885,8 +827,7 @@ class UserProfilesState extends State<UserProfiles>
                 ),
                 // TabBarView
                 SizedBox(
-                  height: MediaQuery.of(context).size.height *
-                      0.5, // Adjust this value as needed
+                  height: MediaQuery.of(context).size.height * 0.5, // Adjust this value as needed
                   child: TabBarView(
                     controller: _tabController,
                     children: [
@@ -900,25 +841,19 @@ class UserProfilesState extends State<UserProfiles>
                               .collection("Services")
                               .snapshots(),
                           builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Center(
-                                  child: CircularProgressIndicator());
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
                             }
                             if (snapshot.hasError) {
-                              return Center(
-                                  child: Text('Error: ${snapshot.error}'));
+                              return Center(child: Text('Error: ${snapshot.error}'));
                             }
-                            if (!snapshot.hasData ||
-                                snapshot.data!.docs.isEmpty) {
-                              return const Center(
-                                  child: Text('No services available'));
+                            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                              return const Center(child: Text('No services available'));
                             }
                             return ListView.separated(
                               padding: EdgeInsets.zero,
                               itemCount: snapshot.data!.docs.length,
-                              separatorBuilder: (context, index) =>
-                                  Divider(height: 1, color: Colors.grey[300]),
+                              separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey[300]),
                               itemBuilder: (context, index) {
                                 var service = snapshot.data!.docs[index];
                                 return _buildServiceItem(service, index == 0);
@@ -937,25 +872,19 @@ class UserProfilesState extends State<UserProfiles>
                               .collection("Products")
                               .snapshots(),
                           builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Center(
-                                  child: CircularProgressIndicator());
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
                             }
                             if (snapshot.hasError) {
-                              return Center(
-                                  child: Text('Error: ${snapshot.error}'));
+                              return Center(child: Text('Error: ${snapshot.error}'));
                             }
-                            if (!snapshot.hasData ||
-                                snapshot.data!.docs.isEmpty) {
-                              return const Center(
-                                  child: Text('No products available'));
+                            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                              return const Center(child: Text('No products available'));
                             }
                             return ListView.separated(
                               padding: EdgeInsets.zero,
                               itemCount: snapshot.data!.docs.length,
-                              separatorBuilder: (context, index) =>
-                                  Divider(height: 1, color: Colors.grey[300]),
+                              separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey[300]),
                               itemBuilder: (context, index) {
                                 var product = snapshot.data!.docs[index];
                                 return _buildProductItem(product, index == 0);
@@ -970,17 +899,13 @@ class UserProfilesState extends State<UserProfiles>
                         child: Column(
                           children: [
                             Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0, vertical: 8.0),
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                               child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
                                     "Reviews",
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                                   ),
                                   TextButton(
                                     onPressed: () {
@@ -1002,27 +927,20 @@ class UserProfilesState extends State<UserProfiles>
                                     .orderBy("timestamp", descending: true)
                                     .snapshots(),
                                 builder: (context, snapshot) {
-                                  if (snapshot.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return const Center(
-                                        child: CircularProgressIndicator());
+                                  if (snapshot.connectionState == ConnectionState.waiting) {
+                                    return const Center(child: CircularProgressIndicator());
                                   }
                                   if (snapshot.hasError) {
-                                    return Center(
-                                        child:
-                                            Text('Error: ${snapshot.error}'));
+                                    return Center(child: Text('Error: ${snapshot.error}'));
                                   }
-                                  if (!snapshot.hasData ||
-                                      snapshot.data!.docs.isEmpty) {
-                                    return const Center(
-                                        child: Text('No reviews yet'));
+                                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                                    return const Center(child: Text('No reviews yet'));
                                   }
                                   return ListView.builder(
                                     padding: EdgeInsets.zero,
                                     itemCount: snapshot.data!.docs.length,
                                     itemBuilder: (context, index) {
-                                      return _buildReviewItem(
-                                          snapshot.data!.docs[index]);
+                                      return _buildReviewItem(snapshot.data!.docs[index]);
                                     },
                                   );
                                 },
@@ -1043,8 +961,7 @@ class UserProfilesState extends State<UserProfiles>
   }
 
   void _addReviewBottomSheet(BuildContext context) {
-    String reviewerName =
-        FirebaseAuth.instance.currentUser?.displayName ?? 'Anonymous';
+    String reviewerName = FirebaseAuth.instance.currentUser?.displayName ?? 'Anonymous';
     String? reviewerAvatarUrl = FirebaseAuth.instance.currentUser?.photoURL;
     TextEditingController reviewController = TextEditingController();
     int rating = 1;
@@ -1120,17 +1037,13 @@ class UserProfilesState extends State<UserProfiles>
                         onPressed: () async {
                           if (widget.serviceProviderId == 'defaultId') {
                             // Jika ID tidak valid, cetak pesan error dan keluar
-                            print(
-                                "Invalid serviceProviderId, cannot add review.");
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        "Error: Invalid service provider ID.")));
+                            print("Invalid serviceProviderId, cannot add review.");
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(const SnackBar(content: Text("Error: Invalid service provider ID.")));
                             return;
                           }
 
-                          print(
-                              'Adding review for user: ${widget.serviceProviderId}');
+                          print('Adding review for user: ${widget.serviceProviderId}');
 
                           // Menambahkan review ke Firestore di bawah ID yang benar
                           await FirebaseFirestore.instance
@@ -1141,8 +1054,7 @@ class UserProfilesState extends State<UserProfiles>
                               .collection("reviews")
                               .add({
                             "reviewerName": reviewerName,
-                            "reviewerId":
-                                FirebaseAuth.instance.currentUser?.uid,
+                            "reviewerId": FirebaseAuth.instance.currentUser?.uid,
                             "rating": rating,
                             "comment": reviewController.text,
                             "timestamp": FieldValue.serverTimestamp(),
@@ -1166,32 +1078,19 @@ class UserProfilesState extends State<UserProfiles>
   }
 
   void getSocialData() {
-    DocumentReference reference = FirebaseFirestore.instance
-        .collection('Users')
-        .doc(widget.serviceProviderId)
-        .collection('Social')
-        .doc('detail');
+    DocumentReference reference =
+        FirebaseFirestore.instance.collection('Users').doc(widget.serviceProviderId).collection('Social').doc('detail');
     reference.snapshots().listen((event) {
       setState(() {
-        facebookUrl = event.data() == null
-            ? ""
-            : (event.data() as Map<String, dynamic>)['facebook'];
-        instagramUrl = event.data() == null
-            ? ""
-            : (event.data() as Map<String, dynamic>)['instagram'];
-        tikTokUrl = event.data() == null
-            ? ""
-            : (event.data() as Map<String, dynamic>)['tiktok'];
+        facebookUrl = event.data() == null ? "" : (event.data() as Map<String, dynamic>)['facebook'];
+        instagramUrl = event.data() == null ? "" : (event.data() as Map<String, dynamic>)['instagram'];
+        tikTokUrl = event.data() == null ? "" : (event.data() as Map<String, dynamic>)['tiktok'];
       });
     });
-    DocumentReference reference1 = FirebaseFirestore.instance
-        .collection('Users')
-        .doc(widget.serviceProviderId);
+    DocumentReference reference1 = FirebaseFirestore.instance.collection('Users').doc(widget.serviceProviderId);
     reference1.snapshots().listen((event) {
       setState(() {
-        precise_address = event.data() == null
-            ? null
-            : (event.data() as Map<String, dynamic>)['precise_location'];
+        precise_address = event.data() == null ? null : (event.data() as Map<String, dynamic>)['precise_location'];
       });
     });
   }
@@ -1239,47 +1138,48 @@ class UserProfilesState extends State<UserProfiles>
   }
 
   void fetchScheduleData() {
-    print(
-        "Fetching schedule for user ID: ${widget.serviceProviderId}"); // Debug print
-    FirebaseFirestore.instance
-        .collection("Users")
-        .doc(widget.serviceProviderId)
-        .get()
-        .then((docSnapshot) {
+    print("Fetching schedule for user ID: ${widget.serviceProviderId}"); // Debug print
+    FirebaseFirestore.instance.collection("Users").doc(widget.serviceProviderId).get().then((docSnapshot) {
       if (docSnapshot.exists) {
-        print(
-            "Document data: ${docSnapshot.data()}"); // Debug print of entire document
+        print("Document data: ${docSnapshot.data()}"); // Debug print of entire document
         var data = docSnapshot.data() as Map<String, dynamic>;
+
         setState(() {
           scheduleData = data['schedule'] as Map<String, dynamic>?;
           print("Fetched schedule data: $scheduleData"); // Debug print
 
           // Check for schedule data in different locations
           if (scheduleData == null) {
-            print(
-                "Schedule data not found in 'schedule' field. Checking other locations...");
-            scheduleData = data['BusinessAccount'] as Map<String, dynamic>?;
+            print("Schedule data not found in 'schedule' field. Checking other locations...");
+            FirebaseFirestore.instance
+                .collection("Users")
+                .doc(widget.serviceProviderId)
+                .collection('BusinessAccount')
+                .doc('detail')
+                .get()
+                .then((docSnapshot) {
+              if (docSnapshot.exists) {
+                print("Document data: ${docSnapshot.data()}"); // Debug print of entire document
+                var businessData = docSnapshot.data() as Map<String, dynamic>;
+                scheduleData = businessData;
+                print("Fetched schedule data from 'BusinessAccount/detail': $scheduleData"); // Debug print
+              }
+            }).catchError((error) {
+              print("Error fetching schedule data from 'BusinessAccount/detail': $error");
+            });
+
             print("BusinessAccount data: $scheduleData");
-            if (scheduleData != null && scheduleData!.containsKey('detail')) {
-              scheduleData = scheduleData!['detail'] as Map<String, dynamic>?;
-              print("BusinessAccount detail data: $scheduleData");
-            }
           }
 
           // If still null, check for individual fields
           if (scheduleData == null) {
             print("Checking for individual schedule fields...");
-            var openTime = data['openTime'] ?? data['timeOpen'];
-            var closeTime = data['closeTime'] ?? data['timeClosed'];
-            var workDays = data['workDays'] ?? data['workingDays'];
+            var openTime = data['openTime'] ?? '';
+            var closeTime = data['closeTime'] ?? '';
+            var workDays = data['workingDays'] ?? '';
             if (openTime != null && closeTime != null) {
-              scheduleData = {
-                'openTime': openTime,
-                'closeTime': closeTime,
-                'workDays': workDays
-              };
-              print(
-                  "Constructed schedule data from individual fields: $scheduleData");
+              scheduleData = {'openTime': openTime, 'closeTime': closeTime, 'workingDays': workDays};
+              print("Constructed schedule data from individual fields: $scheduleData");
             }
           }
         });
@@ -1293,29 +1193,19 @@ class UserProfilesState extends State<UserProfiles>
 
   Widget buildScheduleDisplay() {
     if (scheduleData == null || scheduleData!.isEmpty) {
-      return Text('Schedule not available',
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]));
+      return Text('Schedule not available', style: TextStyle(fontSize: 12, color: Colors.grey[600]));
     }
 
-    String openTime = scheduleData!['openTime'] ??
-        scheduleData!['timeOpen'] ??
-        'Not specified';
-    String closeTime = scheduleData!['closeTime'] ??
-        scheduleData!['timeClosed'] ??
-        'Not specified';
-    String workDays = scheduleData!['workDays'] ??
-        scheduleData!['workingDays'] ??
-        'Not specified';
+    String openTime = scheduleData!['openTime'] ?? scheduleData!['timeOpen'] ?? 'Not specified';
+    String closeTime = scheduleData!['closeTime'] ?? scheduleData!['timeClosed'] ?? 'Not specified';
+    String workDays = scheduleData!['workingDays'] ?? 'Not specified';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Working Schedule:',
-          style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[800]),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[800]),
         ),
         const SizedBox(height: 4),
         Row(
@@ -1381,10 +1271,8 @@ class UserProfilesState extends State<UserProfiles>
 
   void _openMap(BuildContext context) async {
     try {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(widget.serviceProviderId)
-          .get();
+      DocumentSnapshot userDoc =
+          await FirebaseFirestore.instance.collection('Users').doc(widget.serviceProviderId).get();
 
       // Check if the document exists and contains the 'precise_address' field
       if (!userDoc.exists || !userDoc.data().toString().contains('precise_address')) {
@@ -1457,7 +1345,6 @@ class UserProfilesState extends State<UserProfiles>
         ),
         buttons: [],
       ).show();
-
     } catch (e) {
       print('Error in _openMap: $e');
       if (context.mounted) {
@@ -1554,13 +1441,10 @@ class UserProfilesState extends State<UserProfiles>
                         return ExpansionTile(
                           title: Text(date.toString().split(' ')[0]),
                           children: slotList.map<Widget>((timeSlot) {
-                            DateTime startTime =
-                                (timeSlot['startTime'] as Timestamp).toDate();
-                            DateTime endTime =
-                                (timeSlot['endTime'] as Timestamp).toDate();
+                            DateTime startTime = (timeSlot['startTime'] as Timestamp).toDate();
+                            DateTime endTime = (timeSlot['endTime'] as Timestamp).toDate();
                             return ListTile(
-                              title: Text(
-                                  '${_formatTime(startTime)} - ${_formatTime(endTime)}'),
+                              title: Text('${_formatTime(startTime)} - ${_formatTime(endTime)}'),
                             );
                           }).toList(),
                         );

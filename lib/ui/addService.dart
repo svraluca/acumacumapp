@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:acumacum/notifications_setup/cloud_functions/app_cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,7 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 class AddService extends StatefulWidget {
   final String userId;
 
-  const AddService({Key? key, required this.userId}) : super(key: key);
+  const AddService({super.key, required this.userId});
 
   @override
   State<AddService> createState() => _AddServiceState();
@@ -72,8 +74,7 @@ class _AddServiceState extends State<AddService> {
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.add_photo_alternate,
-                                  size: 50, color: Colors.grey[400]),
+                              Icon(Icons.add_photo_alternate, size: 50, color: Colors.grey[400]),
                               const SizedBox(height: 8),
                               Text(
                                 'Add Service Image',
@@ -174,7 +175,7 @@ class _AddServiceState extends State<AddService> {
                   style: GoogleFonts.poppins(),
                   autocorrect: false,
                   enableSuggestions: false,
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     hintText: 'Enter price',
                     hintStyle: GoogleFonts.poppins(color: Colors.grey),
@@ -259,24 +260,41 @@ class _AddServiceState extends State<AddService> {
       try {
         String? imageUrl;
         if (imageFile != null) {
-          final storageRef = FirebaseStorage.instance.ref().child(
-              'service_images/${DateTime.now().millisecondsSinceEpoch}_${imageFile!.name}');
+          final storageRef = FirebaseStorage.instance
+              .ref()
+              .child('service_images/${DateTime.now().millisecondsSinceEpoch}_${imageFile!.name}');
           final uploadTask = storageRef.putFile(File(imageFile!.path));
           final snapshot = await uploadTask.whenComplete(() {});
           imageUrl = await snapshot.ref.getDownloadURL();
         }
+// TODO: Add service to Firestore
+        // await FirebaseFirestore.instance.collection('Users').doc(widget.userId).collection('Services').add({
+        //   'name': _nameController.text,
+        //   'description': _descriptionController.text,
+        //   'price': double.parse(_priceController.text),
+        //   'photoUrl': imageUrl,
+        //   'createdAt': FieldValue.serverTimestamp(),
+        // });
 
-        await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(widget.userId)
-            .collection('Services')
-            .add({
-          'name': _nameController.text,
-          'description': _descriptionController.text,
-          'price': double.parse(_priceController.text),
-          'photoUrl': imageUrl,
-          'createdAt': FieldValue.serverTimestamp(),
+        AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+        final result = await appCloudFunctionService.updateUserData({
+          'uid': FirebaseAuth.instance.currentUser!.uid,
+          'addingNewService': true,
+          'service': {
+            'name': _nameController.text.trim(),
+            'description': _descriptionController.text.trim(),
+            'price': double.parse(_priceController.text),
+            'photoUrl': imageUrl,
+            //'createdAt': FieldValue.serverTimestamp(),
+          },
         });
+
+        if (!result) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error adding service')),
+          );
+          return;
+        }
 
         if (mounted) {
           Navigator.pop(context);

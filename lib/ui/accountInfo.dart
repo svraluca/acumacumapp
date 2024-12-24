@@ -1,11 +1,13 @@
+import 'package:acumacum/notifications_setup/cloud_functions/app_cloud_functions.dart';
+import 'package:acumacum/widgets/app_button.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AccountInfo extends StatefulWidget {
   final String userId;
-  
-  const AccountInfo({Key? key, required this.userId}) : super(key: key);
+
+  const AccountInfo({super.key, required this.userId});
 
   @override
   State<AccountInfo> createState() => _AccountInfoState();
@@ -24,11 +26,8 @@ class _AccountInfoState extends State<AccountInfo> {
 
   Future<void> _loadUserData() async {
     try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(widget.userId)
-          .get();
-      
+      final userDoc = await FirebaseFirestore.instance.collection('Users').doc(widget.userId).get();
+
       if (userDoc.exists) {
         setState(() {
           userData = userDoc.data();
@@ -52,23 +51,36 @@ class _AccountInfoState extends State<AccountInfo> {
 
     try {
       // Update name in Firestore
-      await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(widget.userId)
-          .update({'name': _nameController.text.trim()});
+
+      AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+
+      final result = await appCloudFunctionService.updateUserData({
+        'uid': FirebaseAuth.instance.currentUser!.uid,
+        'data': {'name': _nameController.text.trim()},
+      });
+      // await FirebaseFirestore.instance
+      //     .collection('Users')
+      //     .doc(widget.userId)
+      //     .update({'name': _nameController.text.trim()});
+      if (!result) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Actualizarea numelui a eșuat')),
+        );
+        return;
+      }
 
       // Update display name in Firebase Auth
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         await user.updateDisplayName(_nameController.text.trim());
       }
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Numele a fost actualizat cu succes')),
       );
 
       // Return to previous screen
-      Navigator.pop(context, true);  // Pass true to indicate update was successful
+      Navigator.pop(context, true); // Pass true to indicate update was successful
     } catch (e) {
       print('Error updating name: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -144,8 +156,8 @@ class _AccountInfoState extends State<AccountInfo> {
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _updateName,
+              child: AppButton(
+                onPressed: () async => await _updateName(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFDA291C),
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -153,7 +165,7 @@ class _AccountInfoState extends State<AccountInfo> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text(
+                text: const Text(
                   'Actualizează Numele',
                   style: TextStyle(
                     fontSize: 16,

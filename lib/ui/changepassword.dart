@@ -1,11 +1,13 @@
+import 'package:acumacum/notifications_setup/cloud_functions/app_cloud_functions.dart';
+import 'package:acumacum/widgets/app_button.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChangePassword extends StatefulWidget {
   final String userId;
-  
-  const ChangePassword({Key? key, required this.userId}) : super(key: key);
+
+  const ChangePassword({super.key, required this.userId});
 
   @override
   State<ChangePassword> createState() => _ChangePasswordState();
@@ -15,7 +17,7 @@ class _ChangePasswordState extends State<ChangePassword> {
   final TextEditingController _currentPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
-  
+
   bool _showCurrentPassword = false;
   bool _showNewPassword = false;
   bool _showConfirmPassword = false;
@@ -74,21 +76,34 @@ class _ChangePasswordState extends State<ChangePassword> {
       // If we get here, current password was correct
       // Update password in Firebase Auth
       await user.updatePassword(_newPasswordController.text);
-      
+
       // Update password in Firestore
-      await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(widget.userId)
-          .update({'password': _newPasswordController.text});
-      
+      // TODO: Update password in Firestore
+      // await FirebaseFirestore.instance
+      //     .collection('Users')
+      //     .doc(widget.userId)
+      //     .update({'password': _newPasswordController.text});
+
+      AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+      final result = await appCloudFunctionService.updateUserData({
+        'uid': FirebaseAuth.instance.currentUser!.uid,
+        'data': {'password': _newPasswordController.text},
+      });
+      if (!result) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Actualizarea parolei a eșuat')),
+        );
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Parola a fost actualizată cu succes')),
       );
-      
+
       Navigator.pop(context);
     } catch (e) {
       String errorMessage = 'Actualizarea parolei a eșuat';
-      
+
       if (e is FirebaseAuthException) {
         switch (e.code) {
           case 'requires-recent-login':
@@ -101,7 +116,7 @@ class _ChangePasswordState extends State<ChangePassword> {
             errorMessage = 'A apărut o eroare. Vă rugăm să încercați din nou';
         }
       }
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMessage)),
       );
@@ -181,7 +196,6 @@ class _ChangePasswordState extends State<ChangePassword> {
               ),
             ),
             const SizedBox(height: 20),
-            
             const Text(
               'Parola Nouă',
               style: TextStyle(
@@ -221,7 +235,6 @@ class _ChangePasswordState extends State<ChangePassword> {
               ),
             ),
             const SizedBox(height: 20),
-            
             const Text(
               'Confirmă Parola Nouă',
               style: TextStyle(
@@ -260,7 +273,6 @@ class _ChangePasswordState extends State<ChangePassword> {
                 ),
               ),
             ),
-            
             const SizedBox(height: 8),
             const Text(
               'Parola trebuie să conțină cel puțin 8 caractere.',
@@ -270,12 +282,11 @@ class _ChangePasswordState extends State<ChangePassword> {
                 fontFamily: 'IBMPlexSans',
               ),
             ),
-            
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _updatePassword,
+              child: AppButton(
+                onPressed: () async => await _updatePassword(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFDA291C),
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -283,7 +294,7 @@ class _ChangePasswordState extends State<ChangePassword> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text(
+                text: const Text(
                   'Actualizează Parola',
                   style: TextStyle(
                     fontSize: 16,

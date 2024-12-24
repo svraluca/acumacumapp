@@ -1,12 +1,15 @@
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:acumacum/notifications_setup/cloud_functions/app_cloud_functions.dart';
 import 'package:acumacum/ui/BookingCalendar.dart';
+import 'package:acumacum/widgets/app_button.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:rflutter_alert/rflutter_alert.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:acumacum/model/User.dart';
@@ -21,8 +24,7 @@ import 'package:acumacum/ui/addService.dart';
 import 'package:acumacum/ui/addProduct.dart';
 
 // Define a constant for the dark blue color
-const Color darkBlueColor =
-    Color(0xFF1A237E); // This is a dark blue color, you can adjust it as needed
+const Color darkBlueColor = Color(0xFF1A237E); // This is a dark blue color, you can adjust it as needed
 
 class NewUserPage extends StatefulWidget {
   late ScrollController scrollController;
@@ -34,11 +36,8 @@ class NewUserPage extends StatefulWidget {
 
   static Future<Map<String, dynamic>> getReviewsData(String userId) async {
     try {
-      var reviewsSnapshot = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(userId)
-          .collection('reviews')
-          .get();
+      var reviewsSnapshot =
+          await FirebaseFirestore.instance.collection('Users').doc(userId).collection('reviews').get();
 
       if (reviewsSnapshot.docs.isEmpty) {
         return {'average': 0.0, 'count': 0};
@@ -60,8 +59,7 @@ class NewUserPage extends StatefulWidget {
   }
 }
 
-class NewUserProfile extends State<NewUserPage>
-    with SingleTickerProviderStateMixin {
+class NewUserProfile extends State<NewUserPage> with SingleTickerProviderStateMixin {
   bool isFileImage = false;
   late User user;
   late File pickedFile;
@@ -94,8 +92,7 @@ class NewUserProfile extends State<NewUserPage>
   double _averageRating = 0.0;
   int _numberOfReviews = 0;
 
-  final StreamController<double> _averageRatingController =
-      StreamController<double>.broadcast();
+  final StreamController<double> _averageRatingController = StreamController<double>.broadcast();
 
   Map<String, dynamic>? scheduleData;
 
@@ -123,11 +120,8 @@ class NewUserProfile extends State<NewUserPage>
 
   Future<void> _fetchInitialReviewData() async {
     try {
-      final QuerySnapshot reviewsSnapshot = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(userId)
-          .collection('Reviews')
-          .get();
+      final QuerySnapshot reviewsSnapshot =
+          await FirebaseFirestore.instance.collection('Users').doc(userId).collection('Reviews').get();
 
       double totalRating = 0;
       int numberOfReviews = reviewsSnapshot.docs.length;
@@ -137,14 +131,13 @@ class NewUserProfile extends State<NewUserPage>
       }
 
       setState(() {
-        _averageRating =
-            numberOfReviews > 0 ? totalRating / numberOfReviews : 0;
+        _averageRating = numberOfReviews > 0 ? totalRating / numberOfReviews : 0;
         _numberOfReviews = numberOfReviews;
       });
     } catch (e) {
       print("Error fetching initial review data: $e");
     }
-    }
+  }
 
   @override
   void dispose() {
@@ -177,23 +170,16 @@ class NewUserProfile extends State<NewUserPage>
       });
       Reference storageReference = FirebaseStorage.instance.ref();
       Uint8List imageData = _image.readAsBytesSync();
-      
+
       try {
         // Upload image to Firebase Storage
-        final uploadTask = await storageReference
-            .child("Users Profile")
-            .child(userId)
-            .putData(imageData);
-            
+        final uploadTask = await storageReference.child("Users Profile").child(userId).putData(imageData);
+
         // Get download URL
         final url = await uploadTask.ref.getDownloadURL();
 
         // Update Firestore document directly
-        await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(userId)
-            .update({'avatarUrl': url});
-            
+        await FirebaseFirestore.instance.collection('Users').doc(userId).update({'avatarUrl': url});
       } catch (e) {
         print('Error updating profile image: $e');
         // Optionally show error message to user
@@ -340,15 +326,11 @@ class NewUserProfile extends State<NewUserPage>
             onTap: () async {
               print("Settings button tapped");
               try {
-                DocumentSnapshot snapshot = await FirebaseFirestore.instance
-                    .collection('Users')
-                    .doc(userId)
-                    .get();
+                DocumentSnapshot snapshot = await FirebaseFirestore.instance.collection('Users').doc(userId).get();
                 UserModel user = UserModel.fromDocument(snapshot);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => SettingsPage(user: user)),
+                  MaterialPageRoute(builder: (context) => SettingsPage(user: user)),
                 );
               } catch (e) {
                 print("Error occurred: $e");
@@ -432,9 +414,7 @@ class NewUserProfile extends State<NewUserPage>
                             )
                           : null,
                     ),
-                    child: coverPhotoUrl == null
-                        ? const Center(child: Text("Add Cover Photo"))
-                        : null,
+                    child: coverPhotoUrl == null ? const Center(child: Text("Add Cover Photo")) : null,
                   ),
                   // Add back button here
                   Positioned(
@@ -480,8 +460,7 @@ class NewUserProfile extends State<NewUserPage>
                       children: [
                         // Average Rating
                         StatefulBuilder(
-                          builder:
-                              (BuildContext context, StateSetter setState) {
+                          builder: (BuildContext context, StateSetter setState) {
                             return Padding(
                               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                               child: _buildAverageRating(),
@@ -504,18 +483,15 @@ class NewUserProfile extends State<NewUserPage>
 
                         // Location
                         Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0, vertical: 4.0),
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                           child: Row(
                             children: [
-                              const Icon(Icons.location_on,
-                                  size: 20, color: Colors.grey),
+                              const Icon(Icons.location_on, size: 20, color: Colors.grey),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   address ?? "Location not specified",
-                                  style: TextStyle(
-                                      color: Colors.grey[600], fontSize: 14),
+                                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -525,12 +501,10 @@ class NewUserProfile extends State<NewUserPage>
 
                         // Work Schedule
                         Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0, vertical: 4.0),
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                           child: Row(
                             children: [
-                              const Icon(Icons.calendar_month,
-                                  color: Colors.grey, size: 20),
+                              const Icon(Icons.calendar_month, color: Colors.grey, size: 20),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Column(
@@ -538,16 +512,12 @@ class NewUserProfile extends State<NewUserPage>
                                   children: [
                                     const Text(
                                       "Work Schedule",
-                                      style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold),
+                                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       _formatWorkInfo(),
-                                      style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 14),
+                                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
                                     ),
                                   ],
                                 ),
@@ -566,8 +536,7 @@ class NewUserProfile extends State<NewUserPage>
                               _userEditBottomSheet(context);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  darkBlueColor, // Changed to dark blue
+                              backgroundColor: darkBlueColor, // Changed to dark blue
                               foregroundColor: Colors.white,
                               minimumSize: const Size(double.infinity, 50),
                             ),
@@ -594,10 +563,7 @@ class NewUserProfile extends State<NewUserPage>
                             children: [
                               ServicesTab(userId: userId),
                               ProductsTab(userId: userId),
-                              ReviewsTab(
-                                  userId: userId,
-                                  averageRatingController:
-                                      _averageRatingController),
+                              ReviewsTab(userId: userId, averageRatingController: _averageRatingController),
                             ],
                           ),
                         ),
@@ -624,9 +590,9 @@ class NewUserProfile extends State<NewUserPage>
         .then((doc) {
       if (doc.exists) {
         var data = doc.data() ?? {};
-        openTimeController.text = data['openTime'] ?? data['timeOpen'] ?? '';
-        closeTimeController.text = data['closeTime'] ?? data['timeClosed'] ?? '';
-        workingDaysController.text = data['workDays'] ?? data['workingDays'] ?? '';
+        openTimeController.text = data['openTime'] ?? '';
+        closeTimeController.text = data['closeTime'] ?? '';
+        workingDaysController.text = data['workingDays'] ?? '';
       }
 
       // Now show the bottom sheet with pre-filled data
@@ -635,8 +601,7 @@ class NewUserProfile extends State<NewUserPage>
         isScrollControlled: true,
         builder: (BuildContext bc) {
           return Padding(
-            padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom),
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
             child: SingleChildScrollView(
               child: Container(
                 padding: const EdgeInsets.all(16),
@@ -681,7 +646,7 @@ class NewUserProfile extends State<NewUserPage>
                       ),
                     ),
                     const SizedBox(height: 24),
-                    ElevatedButton(
+                    AppButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: darkBlueColor,
                         foregroundColor: Colors.white,
@@ -690,11 +655,11 @@ class NewUserProfile extends State<NewUserPage>
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () {
-                        _saveChanges();
+                      onPressed: () async {
+                        await _saveChanges();
                         Navigator.pop(context);
                       },
-                      child: const Text(
+                      text: const Text(
                         'Save Changes',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                       ),
@@ -709,48 +674,46 @@ class NewUserProfile extends State<NewUserPage>
     });
   }
 
-  void _saveChanges() async {
+  Future<void> _saveChanges() async {
     try {
       // Update username in Users collection
+      Map<String, dynamic> userData = {};
       if (_userNameController.text.isNotEmpty) {
-        await FirebaseFirestore.instance.collection('Users').doc(userId).update({
+        userData = {
           'name': _userNameController.text,
-        });
+        };
       }
-
-      // Update business hours in both main Users collection and BusinessAccount/detail
-      final updatedData = {
+      // add other fields to userData
+      userData = {
+        ...userData,
         'openTime': openTimeController.text,
         'closeTime': closeTimeController.text,
-        'workDays': workingDaysController.text,
+        'workingDays': workingDaysController.text,
       };
 
-      // Update in main Users collection
-      await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(userId)
-          .update(updatedData);
+      // Update business hours in both main Users collection and BusinessAccount/detail
+      final businessData = {
+        'openTime': openTimeController.text,
+        'closeTime': closeTimeController.text,
+        'workingDays': workingDaysController.text,
+      };
 
-      // Update in BusinessAccount/detail
-      await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(userId)
-          .collection('BusinessAccount')
-          .doc('detail')
-          .set(updatedData, SetOptions(merge: true));
+      AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+      final result = await appCloudFunctionService.updateUserData({
+        'uid': userId,
+        'data': userData,
+        'business': businessData,
+      });
 
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Changes saved successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (result) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Changes saved successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
 
-      // Add debug prints
-      print('Updated data in both locations:');
-      print('Main collection data: $updatedData');
-      
       // Refresh the data
       getData();
       fetchScheduleData();
@@ -766,11 +729,7 @@ class NewUserProfile extends State<NewUserPage>
   }
 
   void getData() {
-    FirebaseFirestore.instance
-        .collection("Users")
-        .doc(userId)
-        .snapshots()
-        .listen((event) {
+    FirebaseFirestore.instance.collection("Users").doc(userId).snapshots().listen((event) {
       if (mounted) {
         setState(() {
           var data = event.data();
@@ -791,13 +750,7 @@ class NewUserProfile extends State<NewUserPage>
     });
 
     // Fetch social data
-    FirebaseFirestore.instance
-        .collection('Users')
-        .doc(userId)
-        .collection('Social')
-        .doc('detail')
-        .get()
-        .then((doc) {
+    FirebaseFirestore.instance.collection('Users').doc(userId).collection('Social').doc('detail').get().then((doc) {
       if (doc.exists && mounted) {
         setState(() {
           var data = doc.data();
@@ -815,21 +768,15 @@ class NewUserProfile extends State<NewUserPage>
   }
 
   void getSocialData() {
-    DocumentReference reference = FirebaseFirestore.instance
-        .collection('Users')
-        .doc(userId)
-        .collection('Social')
-        .doc('detail');
+    DocumentReference reference =
+        FirebaseFirestore.instance.collection('Users').doc(userId).collection('Social').doc('detail');
     print(reference.path);
     reference.snapshots().listen((event) {
       if (mounted) {
         setState(() {
-          facebookUrl =
-              event.data() == null ? null : (event.data() as Map)['facebook'];
-          instagramUrl =
-              event.data() == null ? null : (event.data() as Map)['instagram'];
-          tikTokUrl =
-              event.data() == null ? null : (event.data() as Map)['tiktok'];
+          facebookUrl = event.data() == null ? null : (event.data() as Map)['facebook'];
+          instagramUrl = event.data() == null ? null : (event.data() as Map)['instagram'];
+          tikTokUrl = event.data() == null ? null : (event.data() as Map)['tiktok'];
         });
       }
     });
@@ -882,48 +829,71 @@ class NewUserProfile extends State<NewUserPage>
       return 'Schedule not available';
     }
 
-    String openTime = scheduleData!['openTime'] ??
-        scheduleData!['timeOpen'] ??
-        'Not specified';
-    String closeTime = scheduleData!['closeTime'] ??
-        scheduleData!['timeClosed'] ??
-        'Not specified';
-    String workDays = scheduleData!['workDays'] ??
-        scheduleData!['workingDays'] ??
-        'Not specified';
+    String openTime = scheduleData!['openTime'] ?? 'Not specified';
+    String closeTime = scheduleData!['closeTime'] ?? 'Not specified';
+    String workDays = scheduleData!['workingDays'] ?? 'Not specified';
 
     return 'Working Hours: $openTime - $closeTime\nWorking Days: $workDays';
   }
 
   Future<void> _changeCoverPhoto() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    // first check if the user has permission to access the gallery
+    final status = await Permission.photos.request();
+    if (status.isPermanentlyDenied) {
+      await openAppSettings();
+    } else if (status.isDenied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Permission denied'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    } else if (status.isGranted) {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
-    if (image != null) {
-      File imageFile = File(image.path);
-      String fileName =
-          'cover_photos/${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      if (image != null) {
+        File imageFile = File(image.path);
+        String fileName = 'cover_photos/${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
 
-      try {
-        // Upload to Firebase Storage
-        TaskSnapshot uploadTask =
-            await FirebaseStorage.instance.ref(fileName).putFile(imageFile);
+        try {
+          // Upload to Firebase Storage
+          TaskSnapshot uploadTask = await FirebaseStorage.instance.ref(fileName).putFile(imageFile);
 
-        String downloadUrl = await uploadTask.ref.getDownloadURL();
+          String downloadUrl = await uploadTask.ref.getDownloadURL();
 
-        // Update Firestore
-        await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(userId)
-            .update({'coverPhotoUrl': downloadUrl});
+          // Update Firestore
+          // await FirebaseFirestore.instance.collection('Users').doc(userId).update({'coverPhotoUrl': downloadUrl});
 
-        // Update local state
-        setState(() {
-          coverPhotoUrl = downloadUrl;
-        });
-      } catch (e) {
-        print("Error uploading cover photo: $e");
-        // Show an error message to the user
+          AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+          final result = await appCloudFunctionService.updateUserData({
+            'uid': userId,
+            'data': {'coverPhotoUrl': downloadUrl},
+          });
+          if (result) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Cover photo updated successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            setState(() {
+              coverPhotoUrl = downloadUrl;
+            });
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Error updating cover photo'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          // Update local state
+        } catch (e) {
+          print("Error uploading cover photo: $e");
+          // Show an error message to the user
+        }
       }
     }
   }
@@ -1051,7 +1021,7 @@ class NewUserProfile extends State<NewUserPage>
               ),
               const SizedBox(height: 24),
               Center(
-                child: ElevatedButton(
+                child: AppButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1A237E),
                     padding: const EdgeInsets.symmetric(
@@ -1064,18 +1034,7 @@ class NewUserProfile extends State<NewUserPage>
                     elevation: 0,
                   ),
                   onPressed: () async {
-                      try {
-                        // Show loading indicator
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (BuildContext context) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        },
-                      );
-
+                    try {
                       // Validate and clean URLs
                       final socialData = {
                         'instagram': _cleanUrl(instagramController.text.trim()),
@@ -1084,45 +1043,46 @@ class NewUserProfile extends State<NewUserPage>
                       };
 
                       // Save to Firestore
-                      await FirebaseFirestore.instance
-                          .collection('Users')
-                          .doc(userId)
-                          .collection('Social')
-                          .doc('detail')
-                          .set(socialData, SetOptions(merge: true));
-
-                      // Close loading indicator
-                      Navigator.pop(context);
-                      // Close bottom sheet
-                      Navigator.pop(context);
-
-                      // Show success message
-                      if (mounted) {
+                      AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+                      final result = await appCloudFunctionService.updateUserData({
+                        'uid': userId,
+                        'social': socialData,
+                      });
+                      if (result) {
+                        Navigator.pop(context);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Social media links updated successfully'),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Social media links updated successfully'),
-                            backgroundColor: Colors.green,
+                            content: Text('Error updating social media links'),
+                            backgroundColor: Colors.red,
                             duration: Duration(seconds: 2),
                           ),
                         );
                       }
                     } catch (e) {
                       // Close loading indicator if there's an error
-                      Navigator.pop(context);
-                      
+
                       print('Error saving social media links: $e');
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error updating social media links: ${e.toString()}'),
-                            backgroundColor: Colors.red,
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                      }
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error updating social media links: ${e.toString()}'),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
                     }
                   },
-                  child: const Text(
+                  text: const Text(
                     'Save',
                     style: TextStyle(
                       color: Colors.white,
@@ -1143,24 +1103,18 @@ class NewUserProfile extends State<NewUserPage>
   // Add this helper method to clean URLs
   String _cleanUrl(String url) {
     if (url.isEmpty) return '';
-    
+
     // Remove trailing slashes
     if (url.endsWith('/')) {
       url = url.substring(0, url.length - 1);
     }
-    
+
     return url;
   }
 
   // Add this method to fetch social links
   void _fetchSocialLinks() {
-    FirebaseFirestore.instance
-        .collection('Users')
-        .doc(userId)
-        .collection('Social')
-        .doc('detail')
-        .get()
-        .then((doc) {
+    FirebaseFirestore.instance.collection('Users').doc(userId).collection('Social').doc('detail').get().then((doc) {
       if (doc.exists) {
         setState(() {
           instagramController.text = doc.data()?['instagram'] ?? '';
@@ -1173,7 +1127,7 @@ class NewUserProfile extends State<NewUserPage>
 
   void _showAddLocationDialog(BuildContext context) {
     final TextEditingController locationController = TextEditingController();
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1217,7 +1171,7 @@ class NewUserProfile extends State<NewUserPage>
               ),
               const SizedBox(height: 24),
               Center(
-                child: ElevatedButton(
+                child: AppButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: darkBlueColor,
                     foregroundColor: Colors.white,
@@ -1229,25 +1183,36 @@ class NewUserProfile extends State<NewUserPage>
                   onPressed: () async {
                     if (locationController.text.isNotEmpty) {
                       try {
-                        await FirebaseFirestore.instance
-                            .collection('Users')
-                            .doc(userId)
-                            .update({
-                          'precise_address': locationController.text,
+                        // await FirebaseFirestore.instance.collection('Users').doc(userId).update({
+                        //   'precise_address': locationController.text,
+                        // });
+
+                        AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+                        final result = await appCloudFunctionService.updateUserData({
+                          'uid': userId,
+                          'data': {'precise_address': locationController.text},
                         });
-                        
+
                         setState(() {
                           precise_address = locationController.text;
                         });
-                        
-                        Navigator.pop(context);
-                        
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Business location updated successfully'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
+
+                        if (result) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Location updated successfully'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          Navigator.pop(context);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Error updating location. Please try again.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
                       } catch (e) {
                         print('Error updating location: $e');
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -1259,7 +1224,7 @@ class NewUserProfile extends State<NewUserPage>
                       }
                     }
                   },
-                  child: const Text(
+                  text: const Text(
                     'Save Location',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
@@ -1293,11 +1258,8 @@ Text _buildRatingStars(int rating) {
 Future<bool> checkActiveSubscription(String userId) async {
   try {
     print('Checking subscription for user: $userId'); // Debug print
-    
-    DocumentSnapshot userDoc = await FirebaseFirestore.instance
-        .collection('Users')
-        .doc(userId)
-        .get();
+
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('Users').doc(userId).get();
 
     if (!userDoc.exists) {
       print('User document does not exist'); // Debug print
@@ -1305,20 +1267,19 @@ Future<bool> checkActiveSubscription(String userId) async {
     }
 
     Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-    
+
     // Debug prints
     print('User data: $userData');
     print('Subscription data: ${userData['subscription']}');
 
     // Check the nested subscription structure
-    if (userData['subscription'] != null && 
-        userData['subscription'] is Map<String, dynamic>) {
+    if (userData['subscription'] != null && userData['subscription'] is Map<String, dynamic>) {
       Map<String, dynamic> subscription = userData['subscription'] as Map<String, dynamic>;
-      
+
       // Check if status is active
       bool isActive = subscription['status'] == 'active';
       print('Subscription status is active: $isActive'); // Debug print
-      
+
       return isActive;
     }
 
@@ -1341,18 +1302,14 @@ class ServicesTab extends StatelessWidget {
       children: [
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('Users')
-                .doc(userId)
-                .collection('Services')
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('Users').doc(userId).collection('Services').snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Center(child: Text('Something went wrong'));
               }
 
               if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
+                return const Center(child: CircularProgressIndicator());
               }
 
               if (snapshot.data!.docs.isEmpty) {
@@ -1364,8 +1321,7 @@ class ServicesTab extends StatelessWidget {
                 itemCount: snapshot.data!.docs.length,
                 itemBuilder: (context, index) {
                   DocumentSnapshot document = snapshot.data!.docs[index];
-                  Map<String, dynamic> data =
-                      document.data()! as Map<String, dynamic>;
+                  Map<String, dynamic> data = document.data()! as Map<String, dynamic>;
                   return Card(
                     margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     color: Colors.white,
@@ -1404,8 +1360,7 @@ class ServicesTab extends StatelessWidget {
                                   const SizedBox(height: 4),
                                   Expanded(
                                     child: GestureDetector(
-                                      onTap: () => _showFullDescription(
-                                          context, data['name'], data['description']),
+                                      onTap: () => _showFullDescription(context, data['name'], data['description']),
                                       child: Text(
                                         data['description'],
                                         style: TextStyle(
@@ -1438,8 +1393,7 @@ class ServicesTab extends StatelessWidget {
                                 Row(
                                   children: [
                                     ElevatedButton(
-                                      onPressed: () => _editService(
-                                          context, document.id, data),
+                                      onPressed: () => _editService(context, document.id, data),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: darkBlueColor,
                                         foregroundColor: Colors.white,
@@ -1458,8 +1412,7 @@ class ServicesTab extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 8),
                                     ElevatedButton(
-                                      onPressed: () =>
-                                          _deleteService(document.id),
+                                      onPressed: () => _deleteService(document.id),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.red,
                                         foregroundColor: Colors.white,
@@ -1494,10 +1447,7 @@ class ServicesTab extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 16),
           child: StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('Users')
-                .doc(userId)
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('Users').doc(userId).snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 print('Error checking subscription: ${snapshot.error}');
@@ -1506,32 +1456,25 @@ class ServicesTab extends StatelessWidget {
 
               bool hasActiveSubscription = false;
               if (snapshot.hasData && snapshot.data != null) {
-                Map<String, dynamic>? userData = 
-                    snapshot.data!.data() as Map<String, dynamic>?;
-                
-                if (userData != null && 
-                    userData['subscription'] != null &&
-                    userData['subscription'] is Map) {
-                  hasActiveSubscription = 
-                      userData['subscription']['status'] == 'active';
+                Map<String, dynamic>? userData = snapshot.data!.data() as Map<String, dynamic>?;
+
+                if (userData != null && userData['subscription'] != null && userData['subscription'] is Map) {
+                  hasActiveSubscription = userData['subscription']['status'] == 'active';
                 }
               }
 
               return Stack(
                 children: [
                   ElevatedButton(
-                    onPressed: hasActiveSubscription 
-                        ? () => _addService(context)
-                        : () => _showSubscriptionDialog(context),
+                    onPressed:
+                        hasActiveSubscription ? () => _addService(context) : () => _showSubscriptionDialog(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: darkBlueColor,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 50),
                     ),
-                    child: Text(
-                      hasActiveSubscription ? "Add Service" : "Subscribe to Add Service",
-                      style: const TextStyle(fontSize: 14)
-                    ),
+                    child: Text(hasActiveSubscription ? "Add Service" : "Subscribe to Add Service",
+                        style: const TextStyle(fontSize: 14)),
                   ),
                   if (!hasActiveSubscription)
                     Positioned(
@@ -1562,8 +1505,7 @@ class ServicesTab extends StatelessWidget {
     );
   }
 
-  void _editService(BuildContext context, String serviceId,
-      Map<String, dynamic> currentData) {
+  void _editService(BuildContext context, String serviceId, Map<String, dynamic> currentData) {
     String name = currentData['name'];
     String description = currentData['description'];
     double price = currentData['price'];
@@ -1639,8 +1581,7 @@ class ServicesTab extends StatelessWidget {
         .catchError((error) => print('Failed to delete service: $error'));
   }
 
-  void _showFullDescription(
-      BuildContext context, String title, String description) {
+  void _showFullDescription(BuildContext context, String title, String description) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1676,9 +1617,7 @@ class ServicesTab extends StatelessWidget {
         return AlertDialog(
           title: const Text('Subscription Required'),
           backgroundColor: Colors.white,
-          content: const Text(
-            'You need an active subscription to add services. Would you like to subscribe now?'
-          ),
+          content: const Text('You need an active subscription to add services. Would you like to subscribe now?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -1686,11 +1625,11 @@ class ServicesTab extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                        Navigator.pop(context);
+                Navigator.pop(context);
                 // Navigate to SubscriptionPlanPost
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SubscriptionPlanPost()),
+                  MaterialPageRoute(builder: (context) => const SubscriptionPlanPost()),
                 );
               },
               child: const Text('Subscribe'),
@@ -1722,11 +1661,7 @@ class ProductsTab extends StatelessWidget {
       children: [
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('Users')
-                .doc(userId)
-                .collection('Products')
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('Users').doc(userId).collection('Products').snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Center(child: Text('Something went wrong'));
@@ -1790,17 +1725,15 @@ class ProductsTab extends StatelessWidget {
                                 children: [
                                   Text(
                                     data['name'] ?? 'No name',
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                     overflow: TextOverflow.ellipsis,
                                     maxLines: 1,
                                   ),
                                   const SizedBox(height: 8),
                                   Expanded(
                                     child: GestureDetector(
-                                      onTap: () => _showFullDescription(context,
-                                          data['name'] ?? 'No name', data['description'] ?? 'No description'),
+                                      onTap: () => _showFullDescription(
+                                          context, data['name'] ?? 'No name', data['description'] ?? 'No description'),
                                       child: Text(
                                         data['description'] ?? 'No description',
                                         style: const TextStyle(fontSize: 14),
@@ -1820,24 +1753,19 @@ class ProductsTab extends StatelessWidget {
                               children: [
                                 Text(
                                   'Price: ${data['price'].toInt()} RON',
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: darkBlueColor),
+                                  style:
+                                      const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: darkBlueColor),
                                 ),
                                 Row(
                                   children: [
                                     ElevatedButton(
-                                      onPressed: () => _editProduct(
-                                          context, document.id, data),
+                                      onPressed: () => _editProduct(context, document.id, data),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: darkBlueColor,
                                         foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 8),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       ),
-                                      child: const Text('Edit',
-                                          style: TextStyle(fontSize: 12)),
+                                      child: const Text('Edit', style: TextStyle(fontSize: 12)),
                                     ),
                                     const SizedBox(width: 8),
                                     ElevatedButton(
@@ -1845,11 +1773,9 @@ class ProductsTab extends StatelessWidget {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.red,
                                         foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 8),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       ),
-                                      child: const Text('Delete',
-                                          style: TextStyle(fontSize: 12)),
+                                      child: const Text('Delete', style: TextStyle(fontSize: 12)),
                                     ),
                                   ],
                                 ),
@@ -1868,10 +1794,7 @@ class ProductsTab extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 16),
           child: StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('Users')
-                .doc(userId)
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('Users').doc(userId).snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 print('Error checking subscription: ${snapshot.error}');
@@ -1880,32 +1803,25 @@ class ProductsTab extends StatelessWidget {
 
               bool hasActiveSubscription = false;
               if (snapshot.hasData && snapshot.data != null) {
-                Map<String, dynamic>? userData = 
-                    snapshot.data!.data() as Map<String, dynamic>?;
-                
-                if (userData != null && 
-                    userData['subscription'] != null &&
-                    userData['subscription'] is Map) {
-                  hasActiveSubscription = 
-                      userData['subscription']['status'] == 'active';
+                Map<String, dynamic>? userData = snapshot.data!.data() as Map<String, dynamic>?;
+
+                if (userData != null && userData['subscription'] != null && userData['subscription'] is Map) {
+                  hasActiveSubscription = userData['subscription']['status'] == 'active';
                 }
               }
 
               return Stack(
                 children: [
                   ElevatedButton(
-                    onPressed: hasActiveSubscription 
-                        ? () => _addProduct(context)
-                        : () => _showSubscriptionDialog(context),
+                    onPressed:
+                        hasActiveSubscription ? () => _addProduct(context) : () => _showSubscriptionDialog(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: darkBlueColor,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 50),
                     ),
-                    child: Text(
-                      hasActiveSubscription ? "Add Product" : "Subscribe to Add Product",
-                      style: const TextStyle(fontSize: 14)
-                    ),
+                    child: Text(hasActiveSubscription ? "Add Product" : "Subscribe to Add Product",
+                        style: const TextStyle(fontSize: 14)),
                   ),
                   if (!hasActiveSubscription)
                     Positioned(
@@ -2072,7 +1988,7 @@ class ProductsTab extends StatelessWidget {
           child: const Icon(Icons.error),
         );
       }
-                      } catch (e) {
+    } catch (e) {
       print('Error loading image: $e');
       return Container(
         height: 100,
@@ -2090,9 +2006,7 @@ class ProductsTab extends StatelessWidget {
         return AlertDialog(
           title: const Text('Subscription Required'),
           backgroundColor: Colors.white,
-          content: const Text(
-            'You need an active subscription to add products. Would you like to subscribe now?'
-          ),
+          content: const Text('You need an active subscription to add products. Would you like to subscribe now?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -2100,11 +2014,11 @@ class ProductsTab extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                        Navigator.pop(context);
+                Navigator.pop(context);
                 // Navigate to SubscriptionPlanPost
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SubscriptionPlanPost()),
+                  MaterialPageRoute(builder: (context) => const SubscriptionPlanPost()),
                 );
               },
               child: const Text('Subscribe'),
@@ -2197,8 +2111,7 @@ class ReviewsTab extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        data['timestamp']?.toDate().toString().split(' ')[0] ??
-                            'No date',
+                        data['timestamp']?.toDate().toString().split(' ')[0] ?? 'No date',
                         style: const TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ],
@@ -2224,4 +2137,3 @@ class ReviewsTab extends StatelessWidget {
     );
   }
 }
-

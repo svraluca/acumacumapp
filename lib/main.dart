@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'ui/splash_screen.dart';
 
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -37,6 +38,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'acumacum',
+      navigatorKey: rootNavigatorKey,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),

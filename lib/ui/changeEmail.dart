@@ -1,11 +1,13 @@
+import 'package:acumacum/notifications_setup/cloud_functions/app_cloud_functions.dart';
+import 'package:acumacum/widgets/app_button.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ChangeEmail extends StatefulWidget {
   final String userId;
-  
-  const ChangeEmail({Key? key, required this.userId}) : super(key: key);
+
+  const ChangeEmail({super.key, required this.userId});
 
   @override
   State<ChangeEmail> createState() => _ChangeEmailState();
@@ -26,11 +28,8 @@ class _ChangeEmailState extends State<ChangeEmail> {
 
   Future<void> _loadUserData() async {
     try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(widget.userId)
-          .get();
-      
+      final userDoc = await FirebaseFirestore.instance.collection('Users').doc(widget.userId).get();
+
       if (userDoc.exists) {
         setState(() {
           userData = userDoc.data();
@@ -89,11 +88,23 @@ class _ChangeEmailState extends State<ChangeEmail> {
       await user.verifyBeforeUpdateEmail(_emailController.text.trim());
 
       // Update email in Firestore
-      await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(widget.userId)
-          .update({'email': _emailController.text.trim()});
-      
+      // await FirebaseFirestore.instance
+      //     .collection('Users')
+      //     .doc(widget.userId)
+      //     .update({'email': _emailController.text.trim()});
+
+      AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+      final result = await appCloudFunctionService.updateUserData({
+        'uid': FirebaseAuth.instance.currentUser!.uid,
+        'data': {'email': _emailController.text.trim()},
+      });
+      if (!result) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Actualizarea email-ului a eșuat')),
+        );
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -102,12 +113,12 @@ class _ChangeEmailState extends State<ChangeEmail> {
           duration: Duration(seconds: 5),
         ),
       );
-      
+
       Navigator.pop(context);
     } catch (e) {
       print('Error: $e');
       String errorMessage = 'Actualizarea email-ului a eșuat';
-      
+
       if (e is FirebaseAuthException) {
         switch (e.code) {
           case 'email-already-in-use':
@@ -126,7 +137,7 @@ class _ChangeEmailState extends State<ChangeEmail> {
             errorMessage = 'A apărut o eroare. Vă rugăm să încercați din nou. (${e.code})';
         }
       }
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMessage)),
       );
@@ -200,7 +211,6 @@ class _ChangeEmailState extends State<ChangeEmail> {
               ),
             ),
             const SizedBox(height: 20),
-            
             const Text(
               'Parola Curentă',
               style: TextStyle(
@@ -242,8 +252,8 @@ class _ChangeEmailState extends State<ChangeEmail> {
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _updateEmail,
+              child: AppButton(
+                onPressed: () async => await _updateEmail(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFDA291C),
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -251,7 +261,7 @@ class _ChangeEmailState extends State<ChangeEmail> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text(
+                text: const Text(
                   'Actualizează Email',
                   style: TextStyle(
                     fontSize: 16,
