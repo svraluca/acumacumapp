@@ -40,6 +40,9 @@ class _MessageListState extends State<MessageList> {
   late String userId;
   bool _isLoading = false;
 
+  // Add a StreamSubscription to properly manage the stream
+  StreamSubscription? _chatRoomSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -62,19 +65,15 @@ class _MessageListState extends State<MessageList> {
         var userData = userDoc.data() as Map<String, dynamic>;
         
         setState(() {
-          currentName = userData['name'] ?? ''; // Provide default empty string
+          currentName = userData['name'] ?? '';
           currentId = userDoc.id;
-          currentProfile = userData['avatarUrl'] ?? ''; // Provide default empty string
+          currentProfile = userData['avatarUrl'] ?? '';
         });
         
-        // Only call retrieveMessageList if we have the required data
         if (currentName.isNotEmpty) {
-          retrieveMessageList();
-        } else {
-          print('Warning: User name is empty');
+          // Initialize the stream subscription here instead of in retrieveMessageList
+          _initializeChatRoomStream();
         }
-      } else {
-        print('Warning: User document does not exist or component unmounted');
       }
     } catch (e) {
       print('Error in didChangeDependencies: $e');
@@ -87,6 +86,59 @@ class _MessageListState extends State<MessageList> {
         );
       }
     }
+  }
+
+  void _initializeChatRoomStream() {
+    // Cancel existing subscription if any
+    _chatRoomSubscription?.cancel();
+
+    // Create a single stream subscription
+    _chatRoomSubscription = FirebaseFirestore.instance
+        .collection('ChatRoom')
+        .snapshots()
+        .listen((chatRoomsSnapshot) {
+          _processChatRooms(chatRoomsSnapshot);
+    });
+  }
+
+  Future<void> _processChatRooms(QuerySnapshot chatRoomsSnapshot) async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+      msgIds = [];
+      messagess = [];
+      lastMsg.clear();
+      msgNames = [];
+      msgUrls = [];
+    });
+
+    try {
+      var userRooms = chatRoomsSnapshot.docs.where((doc) {
+        String roomId = doc.id;
+        return roomId.contains(userId) || roomId.contains(currentName);
+      }).toList();
+
+      for (var room in userRooms) {
+        await _processRoom(room);
+      }
+
+      _sortMessages();
+    } catch (e) {
+      print('Error processing chat rooms: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Replace retrieveMessageList with this simplified version
+  void retrieveMessageList() {
+    // Simply refresh the existing stream
+    _initializeChatRoomStream();
   }
 
   // This is the trick!
@@ -340,20 +392,27 @@ class _MessageListState extends State<MessageList> {
 
                                                         if (confirm == true) {
                                                           try {
-                                                            // Get the exact chat room ID from the current item
-                                                            String chatRoomId = '$currentName&$otherUserName';  // Using names instead of IDs
-                                                            String reverseChatRoomId = '$otherUserName&$currentName';
+                                                            // Try both naming formats
+                                                            String chatRoomId1 = '$currentName&$otherUserName';
+                                                            String chatRoomId2 = '$otherUserName&$currentName';
+                                                            String chatRoomId3 = '${userId}_$otherUserId';
+                                                            String chatRoomId4 = '${otherUserId}_$userId';
 
                                                             print('Attempting to delete chat:');
-                                                            print('Current name: $currentName');
-                                                            print('Other user name: $otherUserName');
-                                                            print('Trying chatRoomId: $chatRoomId');
-                                                            print('Trying reverseChatRoomId: $reverseChatRoomId');
+                                                            print('Format 1: $chatRoomId1');
+                                                            print('Format 2: $chatRoomId2');
+                                                            print('Format 3: $chatRoomId3');
+                                                            print('Format 4: $chatRoomId4');
 
-                                                            // First, check if either chat room exists
+                                                            // Check for chat room with any of these IDs
                                                             var chatRoomSnapshot = await FirebaseFirestore.instance
                                                                 .collection('ChatRoom')
-                                                                .where(FieldPath.documentId, whereIn: [chatRoomId, reverseChatRoomId])
+                                                                .where(FieldPath.documentId, whereIn: [
+                                                                  chatRoomId1, 
+                                                                  chatRoomId2, 
+                                                                  chatRoomId3, 
+                                                                  chatRoomId4
+                                                                ])
                                                                 .get();
 
                                                             if (chatRoomSnapshot.docs.isNotEmpty) {
@@ -367,14 +426,20 @@ class _MessageListState extends State<MessageList> {
                                                               
                                                               print('Deleting ${messages.docs.length} messages');
                                                               
-                                                              // Delete messages first
+                                                              // Use batch write for better performance
+                                                              WriteBatch batch = FirebaseFirestore.instance.batch();
+                                                              
+                                                              // Add message deletions to batch
                                                               for (var message in messages.docs) {
-                                                                await message.reference.delete();
+                                                                batch.delete(message.reference);
                                                               }
-
-                                                              // Then delete the chat room
-                                                              await chatRoom.reference.delete();
-                                                              print('Chat room deleted successfully');
+                                                              
+                                                              // Add chat room deletion to batch
+                                                              batch.delete(chatRoom.reference);
+                                                              
+                                                              // Commit the batch
+                                                              await batch.commit();
+                                                              print('Chat room and messages deleted successfully');
 
                                                               // Show success message
                                                               ScaffoldMessenger.of(context).showSnackBar(
@@ -393,15 +458,11 @@ class _MessageListState extends State<MessageList> {
                                                                 lastMsg.remove(otherUserId);
                                                               });
                                                             } else {
-                                                              print('No chat room found. Checking all chat rooms:');
-                                                              var allChatRooms = await FirebaseFirestore.instance
-                                                                  .collection('ChatRoom')
-                                                                  .get();
-                                                              
-                                                              print('Available chat rooms:');
-                                                              for (var room in allChatRooms.docs) {
-                                                                print('Room ID: ${room.id}');
-                                                              }
+                                                              print('No chat room found with any of these IDs:');
+                                                              print(chatRoomId1);
+                                                              print(chatRoomId2);
+                                                              print(chatRoomId3);
+                                                              print(chatRoomId4);
                                                               
                                                               ScaffoldMessenger.of(context).showSnackBar(
                                                                 const SnackBar(
@@ -464,210 +525,139 @@ class _MessageListState extends State<MessageList> {
     );
   }
 
-  retrieveMessageList() async {
-    setState(() {
-      _isLoading = true;
-      msgIds = [];
-      messagess = [];
-      lastMsg.clear();
-      msgNames = [];
-      msgUrls = [];
-    });
-    
+  Future<void> _processRoom(DocumentSnapshot room) async {
     try {
-      print('Debug - Current user details:');
-      print('Current user ID: $userId');
-      print('Current user name: $currentName');
+      print('Debug - Processing room: ${room.id}');
       
-      FirebaseFirestore.instance
-          .collection('ChatRoom')
-          .snapshots()
-          .listen((chatRoomsSnapshot) async {
-        if (!mounted) return;
+      var messages = await room.reference
+          .collection('chats')
+          .orderBy('time', descending: true)
+          .get();
 
-        setState(() {
-          msgIds = [];
-          messagess = [];
-          lastMsg.clear();
-          msgNames = [];
-          msgUrls = [];
-        });
+      if (messages.docs.isNotEmpty) {
+        var lastMessage = messages.docs.first.data();
+        String senderId = lastMessage['senderId'] ?? '';
+        String receiverId = lastMessage['receiverId'] ?? '';
+        String messageType = lastMessage['type'] ?? '';
+        
+        print('Debug - Message details:');
+        print('Room ID: ${room.id}');
+        print('Sender ID: $senderId');
+        print('Receiver ID: $receiverId');
+        print('Message Type: $messageType');
 
-        var userRooms = chatRoomsSnapshot.docs.where((doc) {
-          String roomId = doc.id;
-          print('Debug - Checking room ID: $roomId');
+        String otherUserId;
+        if (room.id.contains('_')) {
+          // For ID format
+          List<String> ids = room.id.split('_');
+          otherUserId = ids[0] == userId ? ids[1] : ids[0];
+        } else {
+          // For name format
+          List<String> names = room.id.split('&');
+          String otherName = names[0] == currentName ? names[1] : names[0];
           
-          // Check all possible formats
-          bool containsUser = false;
-          
-          // Check ID format with underscore
-          if (roomId.contains('_')) {
-            List<String> ids = roomId.split('_');
-            containsUser = ids.contains(userId);
-            print('Debug - Checking underscore format: $ids contains $userId = $containsUser');
-          } 
-          // Check name format with ampersand
-          else if (roomId.contains('&')) {
-            List<String> names = roomId.split('&');
-            containsUser = names.contains(currentName) || 
-                          names.contains(currentName.trim());
-            print('Debug - Checking ampersand format: $names contains $currentName = $containsUser');
-          }
-          
-          print('Debug - Final result for room $roomId contains user: $containsUser');
-          return containsUser;
-        }).toList();
-
-        print('Debug - Found ${userRooms.length} rooms for current user');
-
-        for (var room in userRooms) {
-          try {
-            print('Debug - Processing room: ${room.id}');
-            
-            var messages = await room.reference
-                .collection('chats')
-                .orderBy('time', descending: true)
-                .get();
-
-            if (messages.docs.isNotEmpty) {
-              var lastMessage = messages.docs.first.data();
-              String senderId = lastMessage['senderId'] ?? '';
-              String receiverId = lastMessage['receiverId'] ?? '';
-              String messageType = lastMessage['type'] ?? '';
+          // Get user ID from name
+          var userQuery = await FirebaseFirestore.instance
+              .collection('Users')
+              .where('name', isEqualTo: otherName.trim())
+              .get();
               
-              print('Debug - Message details:');
-              print('Room ID: ${room.id}');
-              print('Sender ID: $senderId');
-              print('Receiver ID: $receiverId');
-              print('Message Type: $messageType');
-
-              String otherUserId;
-              if (room.id.contains('_')) {
-                // For ID format
-                List<String> ids = room.id.split('_');
-                otherUserId = ids[0] == userId ? ids[1] : ids[0];
-              } else {
-                // For name format
-                List<String> names = room.id.split('&');
-                String otherName = names[0] == currentName ? names[1] : names[0];
-                
-                // Get user ID from name
-                var userQuery = await FirebaseFirestore.instance
-                    .collection('Users')
-                    .where('name', isEqualTo: otherName.trim())
-                    .get();
-                    
-                if (userQuery.docs.isNotEmpty) {
-                  otherUserId = userQuery.docs.first.id;
-                } else {
-                  // Fallback to message sender/receiver
-                  otherUserId = senderId == userId ? receiverId : senderId;
-                }
-              }
-
-              print('Debug - Other user ID: $otherUserId');
-
-              if (otherUserId.isNotEmpty) {
-                Message messageObj = Message(
-                  message: lastMessage['message'] ?? '',
-                  time: lastMessage['time'],
-                  unread: false,
-                  senderId: senderId,
-                  isBookingOffer: messageType == 'booking_offer',
-                );
-
-                // Fetch other user's details
-                var userDoc = await FirebaseFirestore.instance
-                    .collection('Users')
-                    .doc(otherUserId)
-                    .get();
-
-                if (userDoc.exists && mounted) {
-                  String otherUserName = userDoc.data()?['name'] ?? '';
-                  String otherUserAvatar = userDoc.data()?['avatarUrl'] ?? '';
-                  
-                  print('Debug - Other user details:');
-                  print('Name: $otherUserName');
-                  print('Avatar: $otherUserAvatar');
-
-                  setState(() {
-                    if (!msgIds.contains(otherUserId)) {
-                      msgIds.add(otherUserId);
-                      msgNames.add(otherUserName);
-                      msgUrls.add(otherUserAvatar);
-                      lastMsg[otherUserId] = messageObj;
-                      messagess.add(messageObj);
-                    } else {
-                      // Update existing message if newer
-                      int existingIndex = msgIds.indexOf(otherUserId);
-                      DateTime existingTime = lastMsg[otherUserId]!.time.toDate();
-                      DateTime newTime = lastMessage['time'].toDate();
-                      
-                      if (newTime.isAfter(existingTime)) {
-                        lastMsg[otherUserId] = messageObj;
-                        messagess[existingIndex] = messageObj;
-                      }
-                    }
-                  });
-                }
-              }
-
-              // Add this check for unread messages
-              if (receiverId == userId && 
-                  !(lastMessage['read'] ?? false)) {
-                // Update the user's unread status
-                await FirebaseFirestore.instance
-                    .collection('Users')
-                    .doc(userId)
-                    .update({
-                      'hasUnreadMessages': true,
-                      'unreadMessages': FieldValue.increment(1)
-                    });
-              }
-            }
-          } catch (e) {
-            print('Error processing room ${room.id}: $e');
+          if (userQuery.docs.isNotEmpty) {
+            otherUserId = userQuery.docs.first.id;
+          } else {
+            // Fallback to message sender/receiver
+            otherUserId = senderId == userId ? receiverId : senderId;
           }
         }
 
-        // After all messages are collected, sort them by time (newest first)
-        if (mounted && lastMsg.isNotEmpty) {
-          setState(() {
-            // Create a list of indices and sort them based on message times
-            List<int> sortedIndices = List.generate(msgIds.length, (i) => i);
-            sortedIndices.sort((a, b) {
-              DateTime timeA = lastMsg[msgIds[a]]!.time.toDate();
-              DateTime timeB = lastMsg[msgIds[b]]!.time.toDate();
-              return timeB.compareTo(timeA); // Changed to sort newest first
+        print('Debug - Other user ID: $otherUserId');
+
+        if (otherUserId.isNotEmpty) {
+          Message messageObj = Message(
+            message: lastMessage['message'] ?? '',
+            time: lastMessage['time'],
+            unread: false,
+            senderId: senderId,
+            isBookingOffer: messageType == 'booking_offer',
+          );
+
+          // Fetch other user's details
+          var userDoc = await FirebaseFirestore.instance
+              .collection('Users')
+              .doc(otherUserId)
+              .get();
+
+          if (userDoc.exists && mounted) {
+            String otherUserName = userDoc.data()?['name'] ?? '';
+            String otherUserAvatar = userDoc.data()?['avatarUrl'] ?? '';
+            
+            print('Debug - Other user details:');
+            print('Name: $otherUserName');
+            print('Avatar: $otherUserAvatar');
+
+            setState(() {
+              if (!msgIds.contains(otherUserId)) {
+                msgIds.add(otherUserId);
+                msgNames.add(otherUserName);
+                msgUrls.add(otherUserAvatar);
+                lastMsg[otherUserId] = messageObj;
+                messagess.add(messageObj);
+              } else {
+                // Update existing message if newer
+                int existingIndex = msgIds.indexOf(otherUserId);
+                DateTime existingTime = lastMsg[otherUserId]!.time.toDate();
+                DateTime newTime = lastMessage['time'].toDate();
+                
+                if (newTime.isAfter(existingTime)) {
+                  lastMsg[otherUserId] = messageObj;
+                  messagess[existingIndex] = messageObj;
+                }
+              }
             });
-
-            // Create new sorted lists
-            List<String> sortedMsgIds = sortedIndices.map((i) => msgIds[i]).toList();
-            List<String> sortedMsgNames = sortedIndices.map((i) => msgNames[i]).toList();
-            List<String> sortedMsgUrls = sortedIndices.map((i) => msgUrls[i]).toList();
-            List<Message> sortedMessages = sortedIndices.map((i) => messagess[i]).toList();
-
-            // Update the lists with sorted data
-            msgIds = sortedMsgIds;
-            msgNames = sortedMsgNames;
-            msgUrls = sortedMsgUrls;
-            messagess = sortedMessages;
-          });
+          }
         }
 
-        setState(() {
-          _isLoading = false;
-        });
-      });
-
-    } catch (e, stackTrace) {
-      print('Error in retrieveMessageList: $e');
-      print('Stack trace: $stackTrace');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        // Add this check for unread messages
+        if (receiverId == userId && 
+            !(lastMessage['read'] ?? false)) {
+          // Update the user's unread status
+          await FirebaseFirestore.instance
+              .collection('Users')
+              .doc(userId)
+              .update({
+                'hasUnreadMessages': true,
+                'unreadMessages': FieldValue.increment(1)
+              });
+        }
       }
+    } catch (e) {
+      print('Error processing room ${room.id}: $e');
+    }
+  }
+
+  void _sortMessages() {
+    if (mounted && lastMsg.isNotEmpty) {
+      setState(() {
+        // Create a list of indices and sort them based on message times
+        List<int> sortedIndices = List.generate(msgIds.length, (i) => i);
+        sortedIndices.sort((a, b) {
+          DateTime timeA = lastMsg[msgIds[a]]!.time.toDate();
+          DateTime timeB = lastMsg[msgIds[b]]!.time.toDate();
+          return timeB.compareTo(timeA); // Changed to sort newest first
+        });
+
+        // Create new sorted lists
+        List<String> sortedMsgIds = sortedIndices.map((i) => msgIds[i]).toList();
+        List<String> sortedMsgNames = sortedIndices.map((i) => msgNames[i]).toList();
+        List<String> sortedMsgUrls = sortedIndices.map((i) => msgUrls[i]).toList();
+        List<Message> sortedMessages = sortedIndices.map((i) => messagess[i]).toList();
+
+        // Update the lists with sorted data
+        msgIds = sortedMsgIds;
+        msgNames = sortedMsgNames;
+        msgUrls = sortedMsgUrls;
+        messagess = sortedMessages;
+      });
     }
   }
 
@@ -798,6 +788,7 @@ class _MessageListState extends State<MessageList> {
 
   @override
   void dispose() {
+    _chatRoomSubscription?.cancel();
     _resetUnreadCounter();
     super.dispose();
   }
@@ -860,30 +851,15 @@ class NoTransitionRoute<T> extends MaterialPageRoute<T> {
 
 Stream<bool> getUnreadMessageStatus() {
   final userId = FirebaseAuth.instance.currentUser?.uid;
-  if (userId == null) {
-    print('No user ID available for unread message status');
-    return Stream.value(false);
-  }
-
-  print('Starting unread message status stream for user: $userId');
+  if (userId == null) return Stream.value(false);
   
   return FirebaseFirestore.instance
       .collection('Users')
       .doc(userId)
       .snapshots()
-      .map((snapshot) {
-        if (!snapshot.exists) return false;
-        
-        final data = snapshot.data() as Map<String, dynamic>;
-        final hasUnread = data['hasUnreadMessages'] ?? false;
-        final unreadCount = data['unreadMessages'] ?? 0;
-        
-        print('Current user unread status:');
-        print('User ID: $userId');
-        print('hasUnreadMessages: $hasUnread');
-        print('unreadMessages count: $unreadCount');
-        
-        return hasUnread || unreadCount > 0;
-      });
+      .map((snapshot) => 
+          (snapshot.data()?['hasUnreadMessages'] ?? false) || 
+          (snapshot.data()?['unreadMessages'] ?? 0) > 0
+      );
 }
 

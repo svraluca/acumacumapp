@@ -135,7 +135,7 @@ class _MyPanelState extends State<MyPanel> {
       print('Business detail data: $businessData');
 
       // Check both category and mainCategory fields
-      final userCategory = businessData?['category'] ?? businessData?['mainCategory'];
+      final userCategory = businessData?['category'] ?? businessData?['category'];
       print('Current User Category: $userCategory');
 
       if (userCategory == null || userCategory.isEmpty) {

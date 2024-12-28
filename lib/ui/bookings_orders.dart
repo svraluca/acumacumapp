@@ -125,15 +125,10 @@ class _BookingOrdersScreenState extends State<BookingOrdersScreen>
                   stream: CombineLatestStream.list([
                     // Query for orders where user is seller
                     FirebaseFirestore.instance
-                        .collection('orders')
-                        .where('sellerId', isEqualTo: currentUserID)
-                        .orderBy('timestamp', descending: true)
-                        .snapshots(),
-                    // Query for orders where user is buyer
-                    FirebaseFirestore.instance
-                        .collection('orders')
-                        .where('buyerId', isEqualTo: currentUserID)
-                        .orderBy('timestamp', descending: true)
+                        .collection('Users')
+                        .doc(currentUserID)
+                        .collection('Orders')
+                        .orderBy('createdAt', descending: true)
                         .snapshots(),
                   ]),
                   builder: (context, snapshot) {
@@ -167,12 +162,12 @@ class _BookingOrdersScreenState extends State<BookingOrdersScreen>
                       allDocs.addAll(querySnapshot.docs);
                     });
 
-                    // Sort combined results by timestamp
+                    // Sort combined results by createdAt
                     allDocs.sort((a, b) {
                       final aData = a.data() as Map<String, dynamic>;
                       final bData = b.data() as Map<String, dynamic>;
-                      return (bData['timestamp'] as Timestamp)
-                          .compareTo(aData['timestamp'] as Timestamp);
+                      return (bData['createdAt'] as Timestamp)
+                          .compareTo(aData['createdAt'] as Timestamp);
                     });
 
                     if (allDocs.isEmpty) {
@@ -711,7 +706,7 @@ class OrderCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Order Date: ${_formatTimestamp(orderData['timestamp'])}',
+                      'Order Date: ${_formatTimestamp(orderData['createdAt'])}',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Colors.grey,

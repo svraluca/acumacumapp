@@ -56,7 +56,7 @@ class _CategoriesScrollerState extends State<CategoriesScroller> {
       "Educatie",
       "Evenimente",
       "Finante si Asigurari",
-      "Fitness",
+      "Sport",
       "Freelancing",
       "Amenajari Exterioare",
       "Instalatii",
@@ -361,7 +361,7 @@ class _CategoriesScrollerState extends State<CategoriesScroller> {
                                                                               'assets/images/business.png',
                                                                               fit: BoxFit.cover,
                                                                             )
-                                                                          : category == "Fitness"
+                                                                          : category == "Sport"
                                                                               ? Image.asset(
                                                                                   'assets/images/barbell.png',
                                                                                   fit: BoxFit.cover,

@@ -1020,26 +1020,26 @@ class _ChatScreenState extends State<ChatScreen> {
       final docId = DateTime.now().millisecondsSinceEpoch.toString();
       String chatRoomId = getChatRoomId();
 
-      print('Chat Room ID: $chatRoomId');
-      print('Current User ID: $currentUserId');
-      print('Service Provider ID: ${widget.serviceProviderId}');
+      // 1. First, ensure we have all required data
+      if (currentUserId == null || currentName == null) {
+        print('Error: Missing user data');
+        return;
+      }
 
-      // First, ensure the chat room exists
-      await messageColl.doc(chatRoomId).set({
-        "users": [currentUserId, widget.serviceProviderId],
-        "chatRoomId": chatRoomId,
-        "lastMessage": "Booking Request",
-        "lastMessageTime": DateTime.now(),
-      }, SetOptions(merge: true));
-
-      // Get service details
-      final serviceSnapshot = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(widget.serviceProviderId)
-          .collection('Services')
-          .where('name', isEqualTo: serviceName)
-          .limit(1)
-          .get();
+      // 2. Get service details with error handling
+      QuerySnapshot serviceSnapshot;
+      try {
+        serviceSnapshot = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(widget.serviceProviderId)
+            .collection('Services')
+            .where('name', isEqualTo: serviceName)
+            .limit(1)
+            .get();
+      } catch (e) {
+        print('Error fetching service: $e');
+        return;
+      }
 
       if (serviceSnapshot.docs.isEmpty) {
         print('Error: Service not found');
@@ -1047,18 +1047,12 @@ class _ChatScreenState extends State<ChatScreen> {
       }
 
       final serviceId = serviceSnapshot.docs.first.id;
-      final serviceData = serviceSnapshot.docs.first.data();
+      final serviceData = serviceSnapshot.docs.first.data() as Map<String, dynamic>;
 
-      print('Service found:');
-      print('Service ID: $serviceId');
-      print('Service Data: $serviceData');
-
-      // Create booking request message
+      // 3. Create the booking request with all necessary fields
       final bookingData = {
         'sender': currentUserId,
         'clientName': currentName,
-        'time': DateTime.now(),
-        'type': 'booking_request',
         'serviceProviderId': widget.serviceProviderId,
         'serviceId': serviceId,
         'serviceName': serviceName,
@@ -1069,20 +1063,67 @@ class _ChatScreenState extends State<ChatScreen> {
         'photoUrl': serviceData['photoUrl'],
         'description': serviceData['description'],
         'unread': true,
+        'chatRoomId': chatRoomId,
+        'type': 'booking_request', // Important: Add message type
+        'time': DateTime.now(), // Add timestamp
+        'isTimeUpdated': false,
+        'needsResponse': false,
       };
 
-      print('Sending booking request with data:');
-      print(bookingData);
+      // 4. Use a batch write to ensure all operations complete
+      WriteBatch batch = FirebaseFirestore.instance.batch();
 
-      // Send booking request
-      await messageColl.doc(chatRoomId).collection('chats').doc(docId).set(bookingData);
+      // Update chat room
+      batch.set(
+        messageColl.doc(chatRoomId),
+        {
+          "users": [currentUserId, widget.serviceProviderId],
+          "chatRoomId": chatRoomId,
+          "lastMessage": "New booking request",
+          "lastMessageTime": DateTime.now(),
+          "unreadCount": FieldValue.increment(1),
+        },
+        SetOptions(merge: true),
+      );
 
+      // Add booking request message
+      batch.set(
+        messageColl.doc(chatRoomId).collection("chats").doc(docId),
+        bookingData,
+      );
+
+      // 5. Send notification data
+      batch.set(
+        FirebaseFirestore.instance.collection('notifications').doc(),
+        {
+          'recipientId': widget.serviceProviderId,
+          'senderId': currentUserId,
+          'type': 'booking_request',
+          'title': 'New Booking Request',
+          'body': '$currentName wants to book $serviceName',
+          'data': {
+            'chatRoomId': chatRoomId,
+            'bookingId': docId,
+          },
+          'timestamp': FieldValue.serverTimestamp(),
+          'read': false,
+        },
+      );
+
+      await batch.commit();
       print('Booking request sent successfully');
 
-      // Scroll to bottom after sending booking request
+      // 6. Scroll to bottom after sending
       _scrollToBottom();
+
     } catch (error) {
       print('Error sending booking request: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error sending booking request. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -1735,14 +1776,14 @@ class _ChatScreenState extends State<ChatScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!isMe) ...[
-              Text(
-                messageData['sender'] ?? 'Unknown',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              // Text(
+              //   messageData['name'] ?? 'Unknown',
+              //   style: TextStyle(
+              //     fontSize: 12,
+              //     color: Colors.grey[600],
+              //     fontWeight: FontWeight.bold,
+              //   ),
+              // ),
               const SizedBox(height: 4),
             ],
             Text(

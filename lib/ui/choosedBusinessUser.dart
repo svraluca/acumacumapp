@@ -43,11 +43,11 @@ class _BusinessPageState extends State<BusinessPage> {
     "Animale": [
       "Veterinar",
       "Pet shop",
-      "Dog walking",
-      "Pet sitting",
+      "Dog walking/Pet sitting",
       "Dresaj",
-      "Toaletaj",
-      "Pensiune animale"
+      "Salon animale",
+      "Pensiune animale",
+      
     ],
     "Auto": [
       "Mecanică auto",
@@ -78,26 +78,18 @@ class _BusinessPageState extends State<BusinessPage> {
       "Pedichiură",
       "Masaj",
       "Tratamente faciale",
-      "Epilare"
+      "Epilare",
+     
     ],
     "Constructii": [
-      "Amenajări interioare",
-      "Zugrăveli",
-      "Instalații sanitare",
-      "Tâmplărie",
-      "Pardoseli",
-      "Acoperiș",
-      "Zidărie",
-      "Design interior"
+     "Constructii exterioare",
+     "Constructii interioare",
+     "Design interior",
+     "Tamplarie",
+     
     ],
     "Curatenie": [
-      "Curățenie apartamente",
-      "Curățenie birouri",
-      "Curățenie industrială",
-      "Curățare covoare",
-      "Curățare canapele",
-      "Dezinfecție",
-      "Curățenie după constructor"
+    "Curatenie",
     ],
     "Consultanta": [
       "Consultanță afaceri",
@@ -106,24 +98,15 @@ class _BusinessPageState extends State<BusinessPage> {
       "Consultanță HR",
       "Consultanță marketing",
       "Consultanță IT",
-      "Planificare strategică",
       "Dezvoltare Personala",
      "Consultanță energie verde",
     ],
     "Electrice": [
       "Instalații electrice",
       "Reparații electrice",
-      "Tablouri electrice",
-      "Iluminat",
-      "Automatizări",
       "Sisteme securitate",
-      "Mentenanță",
-      "Panouri solare",
+      "Energie verde",
       "Reciclare",
-      "Audit energetic",
-      "Sisteme încălzire",
-      "Pompe de căldură",
-      "Izolații termice"
     ],
 
     "Educatie": [
@@ -136,8 +119,6 @@ class _BusinessPageState extends State<BusinessPage> {
       "Workshop-uri"
     ],
     "Evenimente": [
-   
-      "Decorațiuni",
       "Catering evenimente",
       "Planificare evenimente",
       "Funerare",
@@ -152,31 +133,22 @@ class _BusinessPageState extends State<BusinessPage> {
       "Audit financiar",
       "Planificare financiară"
     ],
-    "Fitness": [
+    "Sport": [
       "Personal trainer",
       "Yoga",
       "Pilates",
       "Aerobic",
       "Nutriție",
       "CrossFit",
-      "Antrenamente online"
+      "Antrenamente online",
+      "Activitati sportive"
     ],
     "Freelancing": [
-      "Copywriting",
-      "Web design",
-      "Social media",
-      "Traduceri",
-      "Content creation",
-      "SEO",
-      "Virtual assistant"
+   "Freelancing"
     ],
     "Amenajari Exterioare": [
       "Grădinărit",
       "Peisagistică",
-      "Sisteme irigații",
-      "Întreținere spații verzi",
-      "Tuns gazon",
-      "Decorațiuni exterior",
     ],
     "Instalatii": [
       "Instalații sanitare",
@@ -203,7 +175,6 @@ class _BusinessPageState extends State<BusinessPage> {
       "Notar",
       "Mediator",
       "Executor judecătoresc",
-      "Consultanță juridică",
       "Proprietate intelectuală",
       "Drept comercial"
     ],
@@ -243,13 +214,7 @@ class _BusinessPageState extends State<BusinessPage> {
       "After school"
     ],
     "Media": [
-      "Fotografie",
-      "Videografie",
-      "Producție audio",
-      "Relații publice",
-      "Copywriting",
-      "Social media",
-      "Podcast"
+  "Fotografie,Videografie"
     ],
     "Ajutor Personal": [
       "Ospatar",
@@ -310,7 +275,7 @@ class _BusinessPageState extends State<BusinessPage> {
     "Târgu Secuiesc", "Târnăveni", "Tecuci", "Timișoara", "Toplița",
     "Tulcea", "Turda", "Turnu Măgurele", "Țăndărei", "Urziceni",
     "Vaslui", "Vișeu de Sus", "Voluntari", "Vulcan", "Zalău",
-    "Zărnești", "Zimnicea"
+    "Zărne��ti", "Zimnicea"
   ]..sort();
 
   String? selectedCity;
@@ -531,6 +496,7 @@ class _BusinessPageState extends State<BusinessPage> {
                                 fillColor: Colors.white,
                                 border: OutlineInputBorder(),
                               ),
+                              dropdownColor: Colors.white,
                               value: selectedCategory,
                               hint: const Text('Selectează categoria'),
                               isExpanded: true,
@@ -539,7 +505,7 @@ class _BusinessPageState extends State<BusinessPage> {
                                   value: category,
                                   child: Text(
                                     category,
-                                    style: const TextStyle(fontSize: 14),
+                                    style: const TextStyle(fontSize: 14, color: Colors.black),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 );
@@ -547,7 +513,7 @@ class _BusinessPageState extends State<BusinessPage> {
                               onChanged: (String? newValue) {
                                 setState(() {
                                   selectedCategory = newValue;
-                                  selectedSubcategory = null; // Reset subcategory when category changes
+                                  selectedSubcategory = null;
                                 });
                               },
                               validator: (value) {
@@ -566,6 +532,7 @@ class _BusinessPageState extends State<BusinessPage> {
                                 fillColor: Colors.white,
                                 border: OutlineInputBorder(),
                               ),
+                              dropdownColor: Colors.white,
                               value: selectedSubcategory,
                               hint: const Text('Selectează subcategoria'),
                               isExpanded: true,
@@ -576,7 +543,7 @@ class _BusinessPageState extends State<BusinessPage> {
                                         value: subcategory,
                                         child: Text(
                                           subcategory,
-                                          style: const TextStyle(fontSize: 14),
+                                          style: const TextStyle(fontSize: 14, color: Colors.black),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       );
@@ -678,8 +645,8 @@ class _BusinessPageState extends State<BusinessPage> {
                                     .collection('BusinessAccount')
                                     .doc('detail')
                                     .set({
-                                  'category': selectedSubcategory,
-                                  'mainCategory': selectedCategory,
+                                  'subcategory': selectedSubcategory,
+                                  'category': selectedCategory,
                                   'workingDays': workingDays,
                                   'openTime': openTime,
                                   'closeTime': closeTime,

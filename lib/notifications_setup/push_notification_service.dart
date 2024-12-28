@@ -50,15 +50,28 @@ class PushNotificationService {
   }
 
   Future<void> startListeningToNotification() async {
-    final bool permission = await _getNotificationPermission();
-    if (permission) {
-      _logger.i(await _messaging.getToken());
+    try {
+      // Request permission first
+      NotificationSettings settings = await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-      _appIsMinimizedNotTerminated();
-      _appIsOpened();
-      _backgroundNotificationHandler();
-    } else {
-      _logger.w('Permission denied');
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        // Get token only if authorized
+        String? token = await _messaging.getToken(
+          vapidKey: 'YOUR_VAPID_KEY', // Remove this line if not using web
+        );
+        
+        if (token != null) {
+          print('FCM Token: $token');
+          // Store or use token as needed
+        }
+      }
+    } catch (e) {
+      print('Error initializing push notifications: $e');
+      // Handle error gracefully - maybe set a flag that notifications aren't available
     }
   }
 

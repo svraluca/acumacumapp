@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:acumacum/notifications_setup/cloud_functions/app_cloud_functions.dart';
 
 class OrderPage extends StatefulWidget {
   final String productName;
@@ -27,6 +28,7 @@ class _OrderPageState extends State<OrderPage> {
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
   final _notesController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -40,6 +42,10 @@ class _OrderPageState extends State<OrderPage> {
 
   Future<void> _submitOrder() async {
     if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
       try {
         final currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser == null) {
@@ -49,7 +55,7 @@ class _OrderPageState extends State<OrderPage> {
           return;
         }
 
-        await FirebaseFirestore.instance.collection('orders').add({
+        final orderData = {
           'buyerId': currentUser.uid,
           'sellerId': widget.sellerId,
           'productId': widget.productId,
@@ -61,19 +67,38 @@ class _OrderPageState extends State<OrderPage> {
           'phoneNumber': _phoneController.text,
           'notes': _notesController.text,
           'status': 'pending',
-          'timestamp': FieldValue.serverTimestamp(),
+        };
+
+        // Use cloud function to create order
+        AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+        final result = await appCloudFunctionService.updateUserData({
+          'uid': currentUser.uid,
+          'order': orderData,
+          'placingNewOrder': true,
         });
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order placed successfully!')),
-          );
-          Navigator.pop(context);
+        if (result) {
+          if (mounted) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Order placed successfully!')),
+            );
+          }
+        } else {
+          throw Exception('Failed to place order');
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error placing order: $e')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error placing order: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -164,7 +189,7 @@ class _OrderPageState extends State<OrderPage> {
               ),
               const SizedBox(height: 32),
               ElevatedButton(
-                onPressed: _submitOrder,
+                onPressed: _isLoading ? null : _submitOrder,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -172,14 +197,16 @@ class _OrderPageState extends State<OrderPage> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text(
-                  'Send Order',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
+                child: _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text(
+                      'Send Order',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
               ),
             ],
           ),

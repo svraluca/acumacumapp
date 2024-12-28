@@ -14,14 +14,26 @@ class _PrivacyState extends State<Privacy> {
 
   @override
   void initState() {
-    // super.initState();
-    // loadDocument();
+    super.initState();
+    loadDocument();
   }
 
   loadDocument() async {
-    document = await PDFDocument.fromAsset('assets/privacy.pdf');
-
-    setState(() => _isLoading = false);
+    try {
+      document = await PDFDocument.fromAsset('assets/privacync.pdf');
+      setState(() => _isLoading = false);
+    } catch (e) {
+      print('Error loading PDF: $e');
+      setState(() {
+        _isLoading = false;
+      });
+      // Show error message to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading PDF')),
+        );
+      }
+    }
   }
 
   /* changePDF(value) async {
@@ -39,7 +51,9 @@ class _PrivacyState extends State<Privacy> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
         title: const Text("Privacy and Security"),
       ),
       body: Center(
@@ -47,6 +61,7 @@ class _PrivacyState extends State<Privacy> {
             ? const Center(child: CircularProgressIndicator())
             : PDFViewer(
                 document: document,
+                backgroundColor: Colors.white,
               ),
       ),
     );

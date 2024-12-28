@@ -22,6 +22,8 @@ import 'package:flutter/services.dart';
 import 'package:acumacum/ui/SubscriptionPlanPost.dart';
 import 'package:acumacum/ui/addService.dart';
 import 'package:acumacum/ui/addProduct.dart';
+import 'package:acumacum/ui/EditService.dart';
+import 'package:acumacum/ui/EditProduct.dart';
 
 // Define a constant for the dark blue color
 const Color darkBlueColor = Color(0xFF1A237E); // This is a dark blue color, you can adjust it as needed
@@ -100,18 +102,66 @@ class NewUserProfile extends State<NewUserPage> with SingleTickerProviderStateMi
   TextEditingController closeTimeController = TextEditingController();
   TextEditingController workingDaysController = TextEditingController();
 
+  // Add new StreamControllers
+  final StreamController<DocumentSnapshot> _userDataController = StreamController<DocumentSnapshot>.broadcast();
+  final StreamController<DocumentSnapshot> _socialDataController = StreamController<DocumentSnapshot>.broadcast();
+
   @override
   void initState() {
     super.initState();
     _initializationFuture = _initializeData();
-    _fetchSocialLinks();
   }
 
   Future<void> _initializeData() async {
-    await initUser(); // Ensure userId is initialized
+    await initUser();
     await _initializeTabController();
     await _fetchInitialReviewData();
-    await fetchScheduleData(); // Add this line
+    await fetchScheduleData();
+    await _setupData();
+  }
+
+  Future<void> _setupData() async {
+    if (!mounted) return;
+    
+    // Fetch user data
+    final userSnapshot = await FirebaseFirestore.instance
+        .collection("Users")
+        .doc(userId)
+        .get();
+        
+    if (mounted) {
+      setState(() {
+        var data = userSnapshot.data();
+        userImage = data?['avatarUrl'];
+        userName = data?['name'];
+        address = data?['address'];
+        precise_address = data?['precise_address'];
+        workSchedule = data?['workSchedule'];
+        workTime = data?['workTime'];
+        coverPhotoUrl = data?['coverPhotoUrl'];
+      });
+    }
+
+    // Fetch social data
+    final socialSnapshot = await FirebaseFirestore.instance
+        .collection('Users')
+        .doc(userId)
+        .collection('Social')
+        .doc('detail')
+        .get();
+        
+    if (mounted && socialSnapshot.exists) {
+      setState(() {
+        var data = socialSnapshot.data();
+        instagramUrl = data?['instagram'];
+        tikTokUrl = data?['tiktok'];
+        facebookUrl = data?['facebook'];
+        
+        instagramController.text = instagramUrl ?? '';
+        tiktokController.text = tikTokUrl ?? '';
+        facebookController.text = facebookUrl ?? '';
+      });
+    }
   }
 
   Future<void> _initializeTabController() async {
@@ -141,6 +191,8 @@ class NewUserProfile extends State<NewUserPage> with SingleTickerProviderStateMi
 
   @override
   void dispose() {
+    _userDataController.close();
+    _socialDataController.close();
     _averageRatingController.close();
     _tabController.dispose();
     openTimeController.dispose();
@@ -154,7 +206,6 @@ class NewUserProfile extends State<NewUserPage> with SingleTickerProviderStateMi
     userId = user.uid;
     print("initUser called with userId: $userId"); // Debug log
     getSocialData();
-    getData();
   }
 
   final TextEditingController _userNameController = TextEditingController();
@@ -561,8 +612,8 @@ class NewUserProfile extends State<NewUserPage> with SingleTickerProviderStateMi
                           child: TabBarView(
                             controller: _tabController,
                             children: [
-                              ServicesTab(userId: userId),
-                              ProductsTab(userId: userId),
+                              ServicesTab(userId: userId, context: context),
+                              ProductsTab(userId: userId, context: context),
                               ReviewsTab(userId: userId, averageRatingController: _averageRatingController),
                             ],
                           ),
@@ -599,9 +650,13 @@ class NewUserProfile extends State<NewUserPage> with SingleTickerProviderStateMi
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
         builder: (BuildContext bc) {
           return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            padding: EdgeInsets.only(bottom: MediaQuery.of(bc).viewInsets.bottom),
             child: SingleChildScrollView(
               child: Container(
                 padding: const EdgeInsets.all(16),
@@ -1291,10 +1346,28 @@ Future<bool> checkActiveSubscription(String userId) async {
   }
 }
 
-class ServicesTab extends StatelessWidget {
+class ServicesTab extends StatefulWidget {
   final String userId;
+  final BuildContext context;
 
-  const ServicesTab({super.key, required this.userId});
+  const ServicesTab({
+    Key? key,
+    required this.userId,
+    required this.context,
+  }) : super(key: key);
+
+  @override
+  _ServicesTabState createState() => _ServicesTabState();
+}
+
+class _ServicesTabState extends State<ServicesTab> {
+  Stream<QuerySnapshot> _getServicesStream() {
+    return FirebaseFirestore.instance
+        .collection('Users')
+        .doc(widget.userId)
+        .collection('Services')
+        .snapshots();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1302,7 +1375,7 @@ class ServicesTab extends StatelessWidget {
       children: [
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('Users').doc(userId).collection('Services').snapshots(),
+            stream: _getServicesStream(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Center(child: Text('Something went wrong'));
@@ -1447,7 +1520,7 @@ class ServicesTab extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 16),
           child: StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance.collection('Users').doc(userId).snapshots(),
+            stream: FirebaseFirestore.instance.collection('Users').doc(widget.userId).snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 print('Error checking subscription: ${snapshot.error}');
@@ -1501,84 +1574,79 @@ class ServicesTab extends StatelessWidget {
   void _addService(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => AddService(userId: userId)),
+      MaterialPageRoute(builder: (context) => AddService(userId: widget.userId)),
     );
   }
 
   void _editService(BuildContext context, String serviceId, Map<String, dynamic> currentData) {
-    String name = currentData['name'];
-    String description = currentData['description'];
-    double price = currentData['price'];
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          title: const Text('Edit Service'),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                TextField(
-                  decoration: const InputDecoration(hintText: 'Service Name'),
-                  onChanged: (value) => name = value,
-                  controller: TextEditingController(text: name),
-                ),
-                TextField(
-                  decoration: const InputDecoration(hintText: 'Description'),
-                  onChanged: (value) => description = value,
-                  controller: TextEditingController(text: description),
-                ),
-                TextField(
-                  decoration: const InputDecoration(hintText: 'Price'),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) => price = double.tryParse(value) ?? price,
-                  controller: TextEditingController(text: price.toString()),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text('Save'),
-              onPressed: () {
-                if (name.isNotEmpty && description.isNotEmpty && price > 0) {
-                  FirebaseFirestore.instance
-                      .collection('Users')
-                      .doc(userId)
-                      .collection('Services')
-                      .doc(serviceId)
-                      .update({
-                    'name': name,
-                    'description': description,
-                    'price': price,
-                  });
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Service updated successfully")),
-                  );
-                }
-              },
-            ),
-          ],
-        );
-      },
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditService(
+          userId: widget.userId,
+          serviceId: serviceId,
+          currentData: currentData,
+        ),
+      ),
     );
   }
 
-  void _deleteService(String serviceId) {
-    FirebaseFirestore.instance
-        .collection('Users')
-        .doc(userId)
-        .collection('Services')
-        .doc(serviceId)
-        .delete()
-        .then((value) => print("Service Deleted"))
-        .catchError((error) => print('Failed to delete service: $error'));
+  void _deleteService(String serviceId) async {
+    try {
+      // Show confirmation dialog
+      bool confirmDelete = await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Delete Service'),
+            content: const Text('Are you sure you want to delete this service?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirmDelete == true) {
+        AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+        final result = await appCloudFunctionService.updateUserData({
+          'uid': widget.userId,
+          'service': {
+            'serviceId': serviceId,
+            'delete': true,
+          },
+        });
+
+        if (!result) {
+          throw Exception('Failed to delete service');
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Service deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (error) {
+      print('Failed to delete service: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting service: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showFullDescription(BuildContext context, String title, String description) {
@@ -1643,15 +1711,26 @@ class ServicesTab extends StatelessWidget {
 
 class ProductsTab extends StatelessWidget {
   final String userId;
+  final BuildContext context;
 
-  const ProductsTab({super.key, required this.userId});
+  const ProductsTab({
+    Key? key,
+    required this.userId,
+    required this.context,
+  }) : super(key: key);
+
+  Stream<QuerySnapshot> _getProductsStream() {
+    return FirebaseFirestore.instance
+        .collection('Users')
+        .doc(userId)
+        .collection('Products')
+        .snapshots();
+  }
 
   void _addProduct(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => AddProduct(userId: userId),
-      ),
+      MaterialPageRoute(builder: (context) => AddProduct(userId: userId)),
     );
   }
 
@@ -1661,7 +1740,7 @@ class ProductsTab extends StatelessWidget {
       children: [
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('Users').doc(userId).collection('Products').snapshots(),
+            stream: _getProductsStream(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Center(child: Text('Something went wrong'));
@@ -1773,9 +1852,18 @@ class ProductsTab extends StatelessWidget {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.red,
                                         foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
                                       ),
-                                      child: const Text('Delete', style: TextStyle(fontSize: 12)),
+                                      child: const Text(
+                                        'Delete',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1846,79 +1934,74 @@ class ProductsTab extends StatelessWidget {
   }
 
   void _editProduct(BuildContext context, String productId, Map<String, dynamic> currentData) {
-    String name = currentData['name'];
-    String description = currentData['description'];
-    double price = currentData['price'];
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          title: const Text('Edit Product'),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                TextField(
-                  decoration: const InputDecoration(hintText: 'Product Name'),
-                  onChanged: (value) => name = value,
-                  controller: TextEditingController(text: name),
-                ),
-                TextField(
-                  decoration: const InputDecoration(hintText: 'Description'),
-                  onChanged: (value) => description = value,
-                  controller: TextEditingController(text: description),
-                ),
-                TextField(
-                  decoration: const InputDecoration(hintText: 'Price'),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) => price = double.tryParse(value) ?? price,
-                  controller: TextEditingController(text: price.toString()),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text('Save'),
-              onPressed: () {
-                if (name.isNotEmpty && description.isNotEmpty && price > 0) {
-                  FirebaseFirestore.instance
-                      .collection('Users')
-                      .doc(userId)
-                      .collection('Products')
-                      .doc(productId)
-                      .update({
-                    'name': name,
-                    'description': description,
-                    'price': price,
-                  });
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Product updated successfully")),
-                  );
-                }
-              },
-            ),
-          ],
-        );
-      },
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditProduct(
+          userId: userId,
+          productId: productId,
+          currentData: currentData,
+        ),
+      ),
     );
   }
 
-  void _deleteProduct(String productId) {
-    FirebaseFirestore.instance
-        .collection('Users')
-        .doc(userId)
-        .collection('Products')
-        .doc(productId)
-        .delete()
-        .then((value) => print("Product Deleted"))
-        .catchError((error) => print('Failed to delete product: $error'));
+  void _deleteProduct(String productId) async {
+    try {
+      // Show confirmation dialog
+      bool confirmDelete = await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Delete Product'),
+            content: const Text('Are you sure you want to delete this product?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirmDelete == true) {
+        AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+        final result = await appCloudFunctionService.updateUserData({
+          'uid': userId,
+          'product': {
+            'productId': productId,
+            'delete': true,
+          },
+        });
+
+        if (!result) {
+          throw Exception('Failed to delete product');
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Product deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (error) {
+      print('Failed to delete product: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting product: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showFullDescription(BuildContext context, String title, String description) {
@@ -1933,7 +2016,13 @@ class ProductsTab extends StatelessWidget {
           ),
           actions: <Widget>[
             TextButton(
-              child: const Text('Close'),
+              child: const Text(
+                'Close',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -2034,21 +2123,26 @@ class ReviewsTab extends StatelessWidget {
   final String userId;
   final StreamController<double> averageRatingController;
 
-  const ReviewsTab({super.key, required this.userId, required this.averageRatingController});
+  ReviewsTab({
+    required this.userId,
+    required this.averageRatingController,
+  });
 
-  Stream<QuerySnapshot> get reviewsStream => FirebaseFirestore.instance
-      .collection("Users")
-      .doc(userId)
-      .collection("BusinessAccount")
-      .doc("detail")
-      .collection("reviews")
-      .orderBy("timestamp", descending: true)
-      .snapshots();
+  Future<QuerySnapshot> _getReviews() {
+    return FirebaseFirestore.instance
+        .collection("Users")
+        .doc(userId)
+        .collection("BusinessAccount")
+        .doc("detail")
+        .collection("reviews")
+        .orderBy("timestamp", descending: true)
+        .get();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: reviewsStream,
+    return FutureBuilder<QuerySnapshot>(
+      future: _getReviews(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());

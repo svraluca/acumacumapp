@@ -12,6 +12,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter/services.dart';
 import 'package:acumacum/ui/OrderPage.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:acumacum/notifications_setup/cloud_functions/app_cloud_functions.dart';
 
 class UserProfiles extends StatefulWidget {
   final String serviceProviderId;
@@ -964,110 +966,189 @@ class UserProfilesState extends State<UserProfiles> with TickerProviderStateMixi
     String reviewerName = FirebaseAuth.instance.currentUser?.displayName ?? 'Anonymous';
     String? reviewerAvatarUrl = FirebaseAuth.instance.currentUser?.photoURL;
     TextEditingController reviewController = TextEditingController();
-    int rating = 1;
+    bool isSubmitting = false;
+    int rating = 0;
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext bc) {
         return StatefulBuilder(
-          builder: (context, setState) => SizedBox(
-            height: MediaQuery.of(context).size.height * .60,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 15.0, top: 10.0),
+          builder: (context, setState) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 20,
+              right: 20,
+              top: 20,
+            ),
+            child: SingleChildScrollView(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
+                  // Header with close button
                   Row(
-                    children: <Widget>[
-                      const Text("Add review"),
-                      const Spacer(),
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Rate & Review",
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       IconButton(
-                        icon: const Icon(Icons.cancel),
-                        color: Colors.orange,
-                        iconSize: 25,
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                      )
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 15.0),
-                          child: TextField(
-                            controller: reviewController,
-                            decoration: const InputDecoration(
-                              helperText: "Review",
-                            ),
-                          ),
-                        ),
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
-                  Row(
-                    children: [
-                      const Expanded(flex: 4, child: Text("Stars given: ")),
-                      Expanded(
-                        flex: 6,
-                        child: DropdownButton<int>(
-                          value: rating,
-                          items: List<DropdownMenuItem<int>>.generate(
-                            5,
-                            (index) => DropdownMenuItem<int>(
-                              value: index + 1,
-                              child: _buildRatingStars(index + 1),
-                            ),
-                          ),
-                          onChanged: (value) {
-                            setState(() => rating = value!);
-                          },
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 20),
+
+                  // Rating Stars
+                  const Text(
+                    "Your Rating",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
+                  const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () async {
-                          if (widget.serviceProviderId == 'defaultId') {
-                            // Jika ID tidak valid, cetak pesan error dan keluar
-                            print("Invalid serviceProviderId, cannot add review.");
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(const SnackBar(content: Text("Error: Invalid service provider ID.")));
-                            return;
-                          }
-
-                          print('Adding review for user: ${widget.serviceProviderId}');
-
-                          // Menambahkan review ke Firestore di bawah ID yang benar
-                          await FirebaseFirestore.instance
-                              .collection("Users")
-                              .doc(widget.serviceProviderId)
-                              .collection("BusinessAccount")
-                              .doc("detail")
-                              .collection("reviews")
-                              .add({
-                            "reviewerName": reviewerName,
-                            "reviewerId": FirebaseAuth.instance.currentUser?.uid,
-                            "rating": rating,
-                            "comment": reviewController.text,
-                            "timestamp": FieldValue.serverTimestamp(),
-                            "avatarUrl": reviewerAvatarUrl,
-                          });
-
-                          print('Review added successfully');
-                          Navigator.of(context).pop();
+                    children: List.generate(5, (index) {
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() => rating = index + 1);
                         },
-                        child: const Text('Save'),
-                      )
-                    ],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(
+                            index < rating ? Icons.star : Icons.star_border,
+                            color: Colors.amber,
+                            size: 40,
+                          ),
+                        ),
+                      );
+                    }),
                   ),
+                  const SizedBox(height: 20),
+
+                  // Review Text Field
+                  const Text(
+                    "Your Review",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: reviewController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: "Share your experience...",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.blue[900]!),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Submit Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[900],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: isSubmitting 
+                        ? null 
+                        : () async {
+                            if (reviewController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Please write a review"))
+                              );
+                              return;
+                            }
+
+                            setState(() => isSubmitting = true);
+
+                            try {
+                              AppCloudFunctionService appCloudFunctionService = AppCloudFunctionService();
+                              final result = await appCloudFunctionService.updateUserData({
+                                'uid': FirebaseAuth.instance.currentUser!.uid,
+                                'addingNewReview': true,
+                                'review': {
+                                  'serviceProviderId': widget.serviceProviderId,
+                                  'reviewerName': reviewerName,
+                                  'reviewerId': FirebaseAuth.instance.currentUser?.uid,
+                                  'rating': rating,
+                                  'comment': reviewController.text.trim(),
+                                  'timestamp': DateTime.now().toIso8601String(),
+                                  'avatarUrl': reviewerAvatarUrl,
+                                },
+                              });
+
+                              if (!result) {
+                                throw Exception('Failed to submit review');
+                              }
+
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Review submitted successfully"))
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("Error submitting review: $e"))
+                                );
+                              }
+                            } finally {
+                              if (context.mounted) {
+                                setState(() => isSubmitting = false);
+                              }
+                            }
+                          },
+                      child: isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(color: Colors.white)
+                          )
+                        : Text(
+                            'Submit Review',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),

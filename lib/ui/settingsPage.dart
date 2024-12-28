@@ -11,6 +11,7 @@ import 'package:acumacum/ui/add_search_tags.dart';
 import 'package:acumacum/ui/block_page.dart';
 import 'package:acumacum/ui/splash_screen.dart';
 import 'package:acumacum/ui/MyPanel.dart';
+import 'package:acumacum/ui/changepassword.dart';
 
 import 'LoginScreen.dart';
 import 'auth.dart';
@@ -251,46 +252,12 @@ class _SettingsPageState extends State<SettingsPage> {
   GestureDetector buttonResetPass(BuildContext context, String title) {
     return GestureDetector(
       onTap: () {
-        showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: Text(title),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text("Reset your password by email"),
-                    TextFormField(
-                      validator: (val) => val!.isEmpty ? 'Enter Email' : null,
-                      onChanged: (val) {
-                        setState(() => email = val);
-                      },
-                      style: const TextStyle(color: Colors.black),
-                      decoration: const InputDecoration(
-                          hintText: 'Enter email',
-                          hintStyle: TextStyle(fontFamily: 'Antra', fontSize: 12.0, color: Colors.black)),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                      child: const Text(
-                        "Reset",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      onPressed: () {
-                        FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-                      },
-                    )
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text("Close")),
-                ],
-              );
-            });
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChangePassword(userId: curretnUserId),
+          ),
+        );
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -544,44 +511,10 @@ class _SettingsPageState extends State<SettingsPage> {
   GestureDetector termsAndConditions(BuildContext context, String title) {
     return GestureDetector(
       onTap: () {
-        showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: Text(title),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text("Read the terms and conditions"),
-                    const SizedBox(
-                      height: 20,
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const Terms()),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                      ),
-                      child: const Text(
-                        "Read",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    )
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text("Close")),
-                ],
-              );
-            });
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const Terms()),
+        );
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -610,44 +543,10 @@ class _SettingsPageState extends State<SettingsPage> {
   GestureDetector privacyAndSecurity(BuildContext context, String title) {
     return GestureDetector(
       onTap: () {
-        showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: Text(title),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text("Read Privacy and Security Doc"),
-                    const SizedBox(
-                      height: 20,
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const Privacy()),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                      ),
-                      child: const Text(
-                        "Read",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    )
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text("Close")),
-                ],
-              );
-            });
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const Privacy()),
+        );
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0),

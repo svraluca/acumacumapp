@@ -139,7 +139,7 @@ class _AddServiceState extends State<AddService> {
                   enableSuggestions: false,
                   maxLines: 3,
                   decoration: InputDecoration(
-                    hintText: 'Describe your service (max 55 words)',
+                    hintText: 'Describe your service (max 155 words)',
                     hintStyle: GoogleFonts.poppins(color: Colors.grey),
                     filled: true,
                     fillColor: Colors.grey[100],
@@ -153,8 +153,8 @@ class _AddServiceState extends State<AddService> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter a description';
                     }
-                    if (_getWordCount(value) > 55) {
-                      return 'Description should not exceed 55 words';
+                    if (_getWordCount(value) > 155) {
+                      return 'Description should not exceed 155 words';
                     }
                     return null;
                   },

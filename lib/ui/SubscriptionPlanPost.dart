@@ -66,18 +66,27 @@ class _SubscriptionPlanPostState extends State<SubscriptionPlanPost> {
   }
 
   String getBaseUrl() {
-    // Check if running in debug mode
-    if (const bool.fromEnvironment('dart.vm.product') == false) {
+    final bool isDebug = const bool.fromEnvironment('dart.vm.product') == false;
+    print('Is debug mode: $isDebug');
+    
+    if (isDebug) {
       if (Platform.isAndroid) {
-        return 'http://192.168.100.31:4000'; // Your computer's IP address
+        return 'http://10.0.2.2:4000';
       } else if (Platform.isIOS) {
-        return 'http://192.168.100.31:4000'; // Your computer's IP address
+        // Check if running on simulator or real device
+        final bool isSimulator = Platform.environment.containsKey('SIMULATOR_DEVICE_NAME') || 
+                                Platform.environment.containsKey('SIMULATOR_HOST_HOME');
+        
+        if (isSimulator) {
+          return 'http://127.0.0.1:4000';
+        } else {
+          // Replace with your computer's IP address
+          return 'http://192.168.1.xxx:4000'; // Replace xxx with your actual IP
+        }
       }
-      return 'http://192.168.100.31:4000'; // Local development
     }
     
-    // Production URL
-    return 'https://your-production-server.com'; // Replace with actual production URL
+    return 'https://your-production-server.com';
   }
 
   @override
@@ -350,30 +359,31 @@ class _SubscriptionPlanPostState extends State<SubscriptionPlanPost> {
         _isLoading = true;
       });
 
-      // Convert string amount to double first
-      final amountDouble = double.parse(amount);
-      // Convert to smallest currency unit (bani)
-      final amountInBani = (amountDouble * 100).toInt();
-      
-      print('Original amount: $amount RON');
-      print('Amount in bani: $amountInBani');
+      final baseUrl = getBaseUrl();
+      final url = '$baseUrl/create-payment-intent';
+      print('Platform: ${Platform.isIOS ? "iOS" : "Android"}'); // Debug platform
+      print('Attempting to connect to: $url');
 
-      final url = '${getBaseUrl()}/create-payment-intent';
-      print('Making request to: $url');
-
+      // Add timeout to the request
       final response = await http.post(
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'amount': amountInBani,
+          'amount': (double.parse(amount) * 100).round(),
           'currency': 'ron',
+          'payment_method_types': ['card'],
         }),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Connection timed out');
+        },
       );
 
-      print('Server response status: ${response.statusCode}');
-      print('Server response body: ${response.body}');
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode != 200) {
         throw Exception('Payment server error: ${response.statusCode}');
@@ -382,7 +392,7 @@ class _SubscriptionPlanPostState extends State<SubscriptionPlanPost> {
       final jsonResponse = jsonDecode(response.body);
       final clientSecret = jsonResponse['clientSecret'];
 
-      // Initialize the payment sheet with the correct amount display
+      // Update payment sheet initialization
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
           paymentIntentClientSecret: clientSecret,
@@ -392,7 +402,7 @@ class _SubscriptionPlanPostState extends State<SubscriptionPlanPost> {
               primary: const Color(0xFFDA291C),
             ),
           ),
-          // Add these parameters to ensure correct amount display
+          style: ThemeMode.system,
           billingDetails: const BillingDetails(),
           primaryButtonLabel: 'Pay ${amount} RON',
         ),

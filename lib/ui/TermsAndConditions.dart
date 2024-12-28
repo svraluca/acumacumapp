@@ -10,7 +10,7 @@ class Terms extends StatefulWidget {
 
 class _TermsState extends State<Terms> {
   bool _isLoading = true;
-  late PDFDocument document;
+  PDFDocument? document;
 
   @override
   void initState() {
@@ -19,35 +19,50 @@ class _TermsState extends State<Terms> {
   }
 
   loadDocument() async {
-    document = await PDFDocument.fromAsset('assets/terms.pdf');
-
-    setState(() => _isLoading = false);
-  }
-
-  changePDF(value) async {
-    setState(() => _isLoading = true);
-    if (value == 1) {
-      document = await PDFDocument.fromAsset('assets/sample2.pdf');
-    } else if (value == 2) {
-      document = await PDFDocument.fromURL("http://conorlastowka.com/book/CitationNeededBook-Sample.pdf");
-    } else {
-      document = await PDFDocument.fromAsset('assets/terms.pdf');
+    try {
+      document = await PDFDocument.fromAsset('assets/termsnc.pdf');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      print('Error loading PDF: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error loading terms and conditions'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-    setState(() => _isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
         title: const Text("Terms and Conditions"),
       ),
-      body: Center(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : PDFViewer(
-                document: document,
-              ),
+      body: Container(
+        color: Colors.white,
+        child: Center(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : document != null
+                  ? Container(
+                      color: Colors.white,
+                      child: PDFViewer(
+                        document: document!,
+                        backgroundColor: Colors.white,
+                      ),
+                    )
+                  : const Center(
+                      child: Text('Unable to load terms and conditions'),
+                    ),
+        ),
       ),
     );
   }

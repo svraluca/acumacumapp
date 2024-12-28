@@ -12,6 +12,7 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   String searchString = '';
+  String? activeFilter;
 
   @override
   void initState() {
@@ -22,6 +23,38 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   final FocusNode _focusNode = FocusNode();
+
+  String normalizeString(String input) {
+    // Convert to lowercase
+    String normalized = input.toLowerCase();
+    
+    // Replace diacritics
+    normalized = normalized
+      .replaceAll('ș', 's')
+      .replaceAll('ț', 't')
+      .replaceAll('ă', 'a')
+      .replaceAll('â', 'a')
+      .replaceAll('î', 'i')
+      .replaceAll('ş', 's')
+      .replaceAll('ţ', 't')
+      .replaceAll('à', 'a')
+      .replaceAll('á', 'a')
+      .replaceAll('ä', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('è', 'e')
+      .replaceAll('ë', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ì', 'i')
+      .replaceAll('ï', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ò', 'o')
+      .replaceAll('ö', 'o')
+      .replaceAll('ú', 'u')
+      .replaceAll('ù', 'u')
+      .replaceAll('ü', 'u');
+    
+    return normalized.trim();
+  }
 
   Future<void> trackSearch(String serviceName, String category) async {
     try {
@@ -80,110 +113,97 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[300],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: TextField(
-        focusNode: _focusNode,
-        onChanged: (value) {
-          setState(() {
-            searchString = value;
-          });
-        },
-        onSubmitted: (value) {
-          if (value.isNotEmpty) {
-            // Remove this as we don't want to track with "General Search"
-            // performSearch(value, 'General Search');
-          }
-        },
-        decoration: InputDecoration(
-          hintText: 'Search for a service or business',
-          hintStyle: const TextStyle(color: Colors.black54),
-          border: InputBorder.none,
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              // Remove this as well
-              // if (searchString != null && searchString!.isNotEmpty) {
-              //   performSearch(searchString!, 'General Search');
-              // }
-              setState(() {});
-            },
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: TextField(
+                  focusNode: _focusNode,
+                  onChanged: (value) {
+                    setState(() {
+                      searchString = value;
+                    });
+                  },
+                  onSubmitted: (value) {
+                    if (value.isNotEmpty) {
+                      // Your existing submit logic
+                    }
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search for a service or business',
+                    hintStyle: const TextStyle(color: Colors.black54),
+                    border: InputBorder.none,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: () {
+                        setState(() {});
+                      },
+                    ),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.filter_list),
+                onPressed: () {
+                  _showFilterDialog();
+                },
+              ),
+            ),
+          ],
         ),
-      ),
+        if (activeFilter != null)
+          Container(
+            margin: EdgeInsets.only(top: 8),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  activeFilter!,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+                SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      activeFilter = null;
+                      searchString = '';
+                    });
+                  },
+                  child: Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
-  }
-
-  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> processBusinessDocs(
-      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) async {
-    final businessDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-    final searchLower = searchString.toLowerCase();
-    final processedServices = Set<String>(); // Track processed services
-
-    for (var doc in docs) {
-      final businessData = doc.data();
-      
-      if (businessData['userRole'] == 'Business') {
-        final businessDoc = await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(doc.id)
-            .collection('BusinessAccount')
-            .doc('detail')
-            .get();
-
-        if (businessDoc.exists) {
-          final businessCategory = businessDoc.data()?['category'] ?? 
-                                 businessDoc.data()?['mainCategory'];
-          
-          final businessName = (businessData['name'] ?? '').toString().toLowerCase();
-          
-          // Just add to results if business name matches, but don't track in analytics
-          if (businessName.contains(searchLower)) {
-            businessDocs.add(doc);
-            continue;
-          }
-
-          // Only track service searches in analytics
-          final servicesSnapshot = await FirebaseFirestore.instance
-              .collection('Users')
-              .doc(doc.id)
-              .collection('Services')
-              .get();
-
-          for (var service in servicesSnapshot.docs) {
-            final serviceData = service.data();
-            final serviceName = (serviceData['name'] ?? '').toString().toLowerCase();
-            
-            if (serviceName.contains(searchLower)) {
-              // Only track if we haven't processed this service name before
-              final serviceKey = '${businessCategory}_${serviceData['name']}';
-              if (!processedServices.contains(serviceKey)) {
-                processedServices.add(serviceKey);
-                
-                if (businessCategory != null && businessCategory.isNotEmpty) {
-                  print('Tracking search for service: ${serviceData['name']} in category: $businessCategory');
-                  await trackSearch(
-                    serviceData['name'],
-                    businessCategory
-                  );
-                }
-              }
-              
-              if (!businessDocs.contains(doc)) {
-                businessDocs.add(doc);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return businessDocs;
   }
 
   Widget _buildSearchSuggestions() {
@@ -196,75 +216,8 @@ class _SearchPageState extends State<SearchPage> {
       );
     }
 
-    return StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-      stream: FirebaseFirestore.instance
-          .collection('Users')
-          .where('userRole', isEqualTo: 'Business')
-          .where('country', isEqualTo: 'Romania')
-          .snapshots()
-          .asyncMap((snapshot) async {
-        final businessDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-
-        for (var doc in snapshot.docs) {
-          final businessData = doc.data();
-          
-          // When accessing the business profile, fetch its category
-          if (businessData['userRole'] == 'Business') {
-            final businessDoc = await FirebaseFirestore.instance
-                .collection('Users')
-                .doc(doc.id)
-                .collection('BusinessAccount')
-                .doc('detail')
-                .get();
-
-            if (businessDoc.exists) {
-              final businessCategory = businessDoc.data()?['category'] ?? businessDoc.data()?['mainCategory'];
-              print('Fetched business category: $businessCategory for ${businessData['name']}'); // Debug log
-
-              final businessName = (businessData['name'] ?? '').toString().toLowerCase();
-              
-              // Just add to results if business name matches, but don't track in analytics
-              if (businessName.contains(searchString.toLowerCase())) {
-                businessDocs.add(doc);
-                continue;
-              }
-
-              // Only track service searches in analytics
-              final servicesSnapshot = await FirebaseFirestore.instance
-                  .collection('Users')
-                  .doc(doc.id)
-                  .collection('Services')
-                  .get();
-
-              for (var service in servicesSnapshot.docs) {
-                final serviceData = service.data();
-                final serviceName = (serviceData['name'] ?? '').toString().toLowerCase();
-                
-                if (serviceName.contains(searchString.toLowerCase())) {
-                  print('Found matching service: ${serviceData['name']} in business: ${businessData['name']}');
-                  print('Using category: $businessCategory');
-                  
-                  // Only track service searches
-                  if (businessCategory != null && businessCategory.isNotEmpty) {
-                    trackSearch(
-                      serviceData['name'],
-                      businessCategory
-                    );
-                  } else {
-                    print('Warning: Missing category for business ${businessData['name']}');
-                  }
-                  
-                  if (!businessDocs.contains(doc)) {
-                    businessDocs.add(doc);
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        return businessDocs;
-      }),
+    return FutureBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+      future: searchBusinesses(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Center(child: Text('Error occurred'));
@@ -342,6 +295,196 @@ class _SearchPageState extends State<SearchPage> {
               );
             },
           ),
+        );
+      },
+    );
+  }
+
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> searchBusinesses() async {
+    final businessDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    final searchLower = normalizeString(searchString);
+
+    print('Searching for: $searchLower');
+
+    try {
+      // Single query to get all businesses
+      final snapshot = await FirebaseFirestore.instance
+          .collection('Users')
+          .where('userRole', isEqualTo: 'Business')
+          .get();
+
+      print('Total businesses found: ${snapshot.docs.length}');
+
+      for (var doc in snapshot.docs) {
+        final businessData = doc.data();
+        final businessName = normalizeString(businessData['name'] ?? '');
+        final businessAddress = normalizeString(businessData['address'] ?? '');
+
+        // Check if the search matches business name or address first
+        bool shouldInclude = false;
+        
+        // If searching for Bucharest/Bucuresti, include businesses from that address
+        if (searchLower == 'bucharest' || searchLower == 'bucuresti') {
+          shouldInclude = businessAddress.contains('bucharest') || 
+                         businessAddress.contains('bucuresti');
+        } else {
+          shouldInclude = businessName.contains(searchLower) || 
+                         businessAddress.contains(searchLower);
+        }
+
+        if (shouldInclude) {
+          businessDocs.add(doc);
+          continue; // Skip service check if already included
+        }
+
+        // Only check services if necessary (name/address didn't match)
+        if (!shouldInclude && searchLower.isNotEmpty) {
+          // Get services in a single query instead of multiple streams
+          final servicesSnapshot = await FirebaseFirestore.instance
+              .collection('Users')
+              .doc(doc.id)
+              .collection('Services')
+              .get();
+
+          // Check if any service matches
+          for (var service in servicesSnapshot.docs) {
+            final serviceData = service.data();
+            final serviceName = normalizeString(serviceData['name'] ?? '');
+            
+            if (serviceName.contains(searchLower)) {
+              businessDocs.add(doc);
+              break; // Exit loop once a match is found
+            }
+          }
+        }
+      }
+
+      print('Final results count: ${businessDocs.length}');
+      return businessDocs;
+
+    } catch (e) {
+      print('Error in searchBusinesses: $e');
+      return [];
+    }
+  }
+
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              insetPadding: EdgeInsets.symmetric(horizontal: 20),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              backgroundColor: Colors.white,
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Filter by City',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                          padding: EdgeInsets.zero,
+                          constraints: BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 20),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: TextField(
+                        onChanged: (value) {
+                          setState(() {
+                            searchString = value;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Enter city name',
+                          hintStyle: TextStyle(color: Colors.grey[600]),
+                          prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 16,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.symmetric(vertical: 14),
+                              backgroundColor: Colors.grey[200],
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () {
+                              if (searchString.isNotEmpty) {
+                                this.setState(() {
+                                  activeFilter = searchString;
+                                });
+                              }
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'Apply',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.symmetric(vertical: 14),
+                              backgroundColor: Color(0xFF000080),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
